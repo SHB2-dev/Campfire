@@ -1,5 +1,5 @@
 {
-  "name": "community-launcher",
+  "name": "campfire-launcher",
   "version": "0.1.0",
   "description": "Minecraft Java コミュニティサーバー向けランチャー",
   "author": "SHB2-dev",
@@ -24,8 +24,8 @@
     "electron-builder": "^25.0.0"
   },
   "build": {
-    "appId": "com.community.launcher",
-    "productName": "Community Launcher",
+    "appId": "dev.shb2.campfire",
+    "productName": "Campfire",
     "files": [
       "src/**/*",
       "package.json"
@@ -37,10 +37,10 @@
       {
         "provider": "github",
         "owner": "SHB2-dev",
-        "repo": "Community-Launcher"
+        "repo": "Campfire"
       }
     ],
-    "artifactName": "CommunityLauncher-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Campfire-${version}-${os}-${arch}.${ext}",
     "win": {
       "target": [
         {

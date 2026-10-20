@@ -22,7 +22,7 @@ if (app.isPackaged && !BACKEND_URL.startsWith('https://')) {
 }
 const REDIRECT_PORT = 53682; // Discord の OAuth2 Redirects に http://127.0.0.1:53682/callback を登録
 
-const dataDir = () => path.join(app.getPath('appData'), '.community-launcher');
+const dataDir = () => path.join(app.getPath('appData'), '.campfire');
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
 let win;

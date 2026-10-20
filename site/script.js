@@ -1,4 +1,4 @@
-const REPO = 'SHB2-dev/Community-Launcher';
+const REPO = 'SHB2-dev/Campfire';
 const RELEASES = `https://github.com/${REPO}/releases/latest`;
 
 // 閲覧中のOSを判定

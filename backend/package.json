@@ -1,5 +1,5 @@
 {
-  "name": "community-launcher-backend",
+  "name": "campfire-backend",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.js",

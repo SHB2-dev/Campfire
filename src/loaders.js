@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-const UA = { 'User-Agent': 'community-launcher' };
+const UA = { 'User-Agent': 'campfire-launcher' };
 
 async function getJson(url) {
   const r = await fetch(url, { headers: UA });

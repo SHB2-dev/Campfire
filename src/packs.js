@@ -5,7 +5,7 @@ const AdmZip = require('adm-zip');
 
 const LOADERS = ['vanilla', 'fabric', 'quilt', 'forge', 'neoforge'];
 const MRPACK_DEPS = { 'fabric-loader': 'fabric', 'quilt-loader': 'quilt', forge: 'forge', neoforge: 'neoforge' };
-const UA = { 'User-Agent': 'community-launcher' };
+const UA = { 'User-Agent': 'campfire-launcher' };
 const STATE_NAME = '.pack-state.json';
 const MAX_DOWNLOAD = 1.2e9; // これを超えるパックは拒否
 const MAX_UNPACKED = 4 * 1024 ** 3;

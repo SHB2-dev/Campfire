@@ -9,9 +9,17 @@ const { Auth } = require('msmc');
 const { resolveEntry, syncFiles } = require('./packs');
 const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
+const { setupUpdater, openReleases } = require('./updater');
 
 // バックエンドURL: 環境変数 > src/config.json(ビルド時に配布用URLへ書き換える)
 const BACKEND_URL = (process.env.BACKEND_URL || require('./config.json').backendUrl).replace(/\/$/, '');
+// 配布版は https のバックエンドにしか接続しない(トークンを平文で流さないため)
+if (app.isPackaged && !BACKEND_URL.startsWith('https://')) {
+  app.whenReady().then(() => {
+    dialog.showErrorBox('設定エラー', 'バックエンドURLが https ではありません。ビルド時に BACKEND_URL を設定してください。');
+    app.quit();
+  });
+}
 const REDIRECT_PORT = 53682; // Discord の OAuth2 Redirects に http://127.0.0.1:53682/callback を登録
 
 const dataDir = () => path.join(app.getPath('appData'), '.community-launcher');
@@ -129,7 +137,10 @@ ipcMain.handle('logout-discord', async () => {
 
 ipcMain.handle('open-admin', async () => {
   const { adminUrl } = await (await fetch(`${BACKEND_URL}/api/config`)).json();
-  return shell.openExternal(adminUrl);
+  // サーバーから受け取ったURLなので、接続先と同じオリジンの http(s) 以外は開かない
+  const u = new URL(adminUrl);
+  if (!['http:', 'https:'].includes(u.protocol) || u.origin !== new URL(BACKEND_URL).origin) throw new Error('管理サイトのURLが不正です');
+  return shell.openExternal(u.href);
 });
 
 // Discord サーバー(アイコン・名前)と、そこに登録されたサーバー一覧。ついでにマイリストを最新化
@@ -176,6 +187,8 @@ ipcMain.handle('login-offline', (_e, name) => {
 });
 
 ipcMain.handle('open-folder', () => shell.openPath(dataDir()));
+ipcMain.handle('open-releases', () => openReleases());
+ipcMain.handle('app-version', () => app.getVersion());
 
 async function confirmTrust(entry, settings) {
   if (entry.type === 'vanilla' && entry.loader === 'vanilla') return true;
@@ -212,12 +225,18 @@ ipcMain.handle('play', async (_e, id) => {
   }
   if (!(await confirmTrust(entry, settings))) return false;
 
+  if (!Number.isInteger(entry.id)) throw new Error('サーバー情報が不正です');
   const root = dataDir();
   const gameDir = path.join(root, 'instances', `s${entry.id}`);
   fs.mkdirSync(gameDir, { recursive: true });
 
   log('パックの更新を確認中...');
-  const resolved = await resolveEntry(entry, path.join(root, 'cache'), log);
+  // CurseForge は API キーを持つバックエンド経由で問い合わせる
+  const curseforge = {
+    pack: (slug) => backend(`/api/curseforge/pack?slug=${encodeURIComponent(slug)}`),
+    files: (ids) => backend('/api/curseforge/files', { method: 'POST', body: JSON.stringify({ fileIds: ids }) }),
+  };
+  const resolved = await resolveEntry(entry, path.join(root, 'cache'), log, { curseforge });
   const sync = await syncFiles(resolved, gameDir, log);
   log(sync.downloaded || sync.removed || sync.packChanged
     ? `更新しました (取得 ${sync.downloaded} / 削除 ${sync.removed})`
@@ -259,6 +278,10 @@ app.whenReady().then(() => {
     backgroundColor: '#14161c', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
   });
+  // 画面は同梱のHTMLのみ。外部ページへの遷移や新規ウィンドウは許可しない
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.once('did-finish-load', () => setupUpdater({ getWindow: () => win, send, log }));
 });
 app.on('window-all-closed', () => app.quit());

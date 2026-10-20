@@ -13,5 +13,7 @@ contextBridge.exposeInMainWorld('api', {
   loginOffline: call('login-offline'),
   play: call('play'),
   openFolder: call('open-folder'),
+  openReleases: call('open-releases'),
+  appVersion: call('app-version'),
   on: (ch, fn) => ipcRenderer.on(ch, (_e, d) => fn(d)),
 });

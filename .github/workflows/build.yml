@@ -19,19 +19,66 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # リポジトリの Variables に BACKEND_URL (https://...) を登録しておく
-      - run: npm run set-backend
+      # タグ名 (v1.2.3) をアプリのバージョンにする。自動更新はこのバージョン比較で動く
+      - if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      # リポジトリの Variables に BACKEND_URL (https://...) を登録しておく。
+      # 署名用の Secrets が登録されていれば自動で署名(macOS は公証も)、無ければ署名なしでビルドする。
+      - name: Build (sign if certificates are configured)
+        shell: bash
         env:
           BACKEND_URL: ${{ vars.BACKEND_URL }}
-      - run: npm run dist
+          WIN_PUBLISHER_NAME: ${{ vars.WIN_PUBLISHER_NAME }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_PASSWORD: ${{ secrets.WIN_CSC_PASSWORD }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_PASSWORD: ${{ secrets.MAC_CSC_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -eu
+          SIGNED=0
+          EXTRA=""
+          case "$RUNNER_OS" in
+            Windows)
+              if [ -n "${WIN_CSC_LINK:-}" ]; then
+                export CSC_LINK="$WIN_CSC_LINK" CSC_KEY_PASSWORD="${WIN_CSC_PASSWORD:-}"
+                SIGNED=1
+                # 自動更新で「同じ発行元の署名」だけを受け入れる(証明書の発行先名を指定)
+                if [ -n "${WIN_PUBLISHER_NAME:-}" ]; then EXTRA="-c.win.publisherName=${WIN_PUBLISHER_NAME}"; fi
+              else
+                echo "::warning::WIN_CSC_LINK が未設定のため、Windows 版は署名されません"
+              fi ;;
+            macOS)
+              if [ -n "${MAC_CSC_LINK:-}" ]; then
+                export CSC_LINK="$MAC_CSC_LINK" CSC_KEY_PASSWORD="${MAC_CSC_PASSWORD:-}"
+                SIGNED=1
+                if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+                  EXTRA="-c.mac.notarize=true"
+                else
+                  echo "::warning::Apple の公証用 Secrets が未設定のため、公証しません(Gatekeeper の警告が出ます)"
+                fi
+              else
+                export CSC_IDENTITY_AUTO_DISCOVERY=false
+                echo "::warning::MAC_CSC_LINK が未設定のため、macOS 版は署名されません"
+              fi ;;
+          esac
+          APP_SIGNED=$SIGNED npm run set-backend
+          # EXTRA は1つの引数として渡す(発行元名に空白があっても壊れない)
+          npx electron-builder --publish never ${EXTRA:+"$EXTRA"}
       - uses: actions/upload-artifact@v4
         with:
           name: launcher-${{ matrix.os }}
           path: |
             dist/*.exe
             dist/*.dmg
+            dist/*.zip
             dist/*.AppImage
             dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
           if-no-files-found: error
 
   release:

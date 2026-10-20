@@ -36,10 +36,15 @@
     <button id="save" class="ghost">保存</button>
     <button id="folder" class="ghost">フォルダを開く</button>
     <button id="admin" class="ghost">管理者の方はこちら</button>
+    <p class="muted ver">バージョン <span id="ver">-</span></p>
   </details>
 </aside>
 
 <main>
+  <div id="update" class="update" hidden>
+    <span id="updateText"></span>
+    <button id="updateBtn" class="sm" hidden>ダウンロードページを開く</button>
+  </div>
   <div class="head"><h2 id="title">マイリスト</h2></div>
   <div id="view" class="view"></div>
   <pre id="log"></pre>

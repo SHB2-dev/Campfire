@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Community Launcher - Discordで見つかる、ワンクリックのマイクラ</title>
+<meta name="description" content="Discordコミュニティ向けのMinecraft Javaランチャー。サーバーを選ぶだけでMODパックの導入・更新・Javaの準備まで自動。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#"><span class="logo">⛏</span> Community Launcher</a>
+  <nav>
+    <a href="#how">使い方</a>
+    <a href="#features">特長</a>
+    <a href="#admin">管理者の方へ</a>
+    <a href="#faq">FAQ</a>
+    <a href="/admin/">管理ログイン</a>
+    <a class="btn small" href="#download">ダウンロード</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">Minecraft Java Edition × Discord</p>
+    <h1>サーバー名を押すだけで、<br>みんなと同じマイクラが始まる。</h1>
+    <p class="lead">MODの導入も、バージョン合わせも、Javaの準備も要りません。所属しているDiscordサーバーが用意したパックを選んでプレイするだけ。更新も起動のたびに自動です。</p>
+    <div class="cta">
+      <a id="dl-main" class="btn big" href="#download">ダウンロード</a>
+      <a class="btn big ghost" href="#how">使い方を見る</a>
+    </div>
+    <p class="note" id="dl-note">Windows / macOS / Linux 対応</p>
+
+    <div class="mock" aria-hidden="true">
+      <div class="m-rail"><i class="on">★</i><i>A</i><i>B</i><i>C</i></div>
+      <div class="m-body">
+        <b>マイリスト</b>
+        <div class="m-card on"><span class="m-av">A</span><div><b>s1</b><small>Minecraft 1.21.1 / Fabric · 自動更新</small></div></div>
+        <div class="m-card"><span class="m-av">A</span><div><b>s2 (建築)</b><small>MODパック · play.example.com</small></div></div>
+        <div class="m-card"><span class="m-av">B</span><div><b>vanilla</b><small>Minecraft 1.20.4</small></div></div>
+        <div class="m-play">プレイ</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="block">
+    <h2>3ステップで遊べます</h2>
+    <ol class="steps">
+      <li><span>1</span><h3>ログイン</h3><p>DiscordとMicrosoftアカウントでログイン。パスワードをランチャーが覚えることはありません。</p></li>
+      <li><span>2</span><h3>サーバーを選ぶ</h3><p>左に所属しているDiscordサーバーのアイコンが並びます。押して、遊びたいサーバー名(s1 など)をクリックするとマイリストに追加。</p></li>
+      <li><span>3</span><h3>プレイ</h3><p>「プレイ」を押すと、必要なMOD・Java・ローダーを自動で用意して起動。指定サーバーへ自動で接続できます。</p></li>
+    </ol>
+  </section>
+
+  <section id="features" class="block alt">
+    <h2>初心者に優しい、全部おまかせ</h2>
+    <div class="grid">
+      <article><h3>🔄 起動時に自動更新</h3><p>管理者がパックを更新すると、次の起動で差分だけ自動ダウンロード。古いMODの入れ替えも自動です。</p></article>
+      <article><h3>☕ Javaも自動</h3><p>バージョンごとに違うJavaを、公式のものを自動で用意。自分でインストールする必要はありません。</p></article>
+      <article><h3>🧩 主要ローダーに対応</h3><p>Fabric / Quilt / Forge / NeoForge、そしてバニラ。Modrinthのモッドパックもそのまま使えます。</p></article>
+      <article><h3>🕰 あらゆるバージョン</h3><p>最新版からスナップショット、古いバージョンまで、Minecraftにあるバージョンを管理者が指定できます。</p></article>
+      <article><h3>🖥 3つのOSに対応</h3><p>Windows(exe)、macOS(dmg)、Linux(AppImage / deb)で動作します。</p></article>
+      <article><h3>🔒 安全面にも配慮</h3><p>通信はHTTPSのみ。ファイルはハッシュで検証し、初回起動時には配布元を確認するダイアログを表示します。</p></article>
+    </div>
+  </section>
+
+  <section id="admin" class="block">
+    <h2>Discordサーバーの管理者の方へ</h2>
+    <div class="two">
+      <div>
+        <p>Botの導入は不要です。管理サイトにDiscordでログインして、あなたのサーバーに「遊び方」を登録するだけ。メンバーのランチャーに、サーバーのアイコンつきで表示されます。</p>
+        <ul class="check">
+          <li>サーバーに <b>s1</b>、<b>s2</b> のように好きな名前で複数登録</li>
+          <li>バニラ(バージョン指定)/ Modrinthのモッドパック / .mrpack / manifest から選べる</li>
+          <li>Modrinthパックなら、新しい版を公開するだけでメンバーに自動反映</li>
+          <li>サーバーの管理権限があれば誰でも編集可能</li>
+        </ul>
+        <p><a class="btn" href="/admin/">管理サイトを開く</a></p>
+      </div>
+      <pre class="code" aria-label="登録イメージ">サーバー名   s1
+遊び方       Modrinth のMODパック
+パック       modrinth.com/modpack/...
+接続先       play.example.com:25565
+             ☑ 起動後に自動で接続する</pre>
+    </div>
+  </section>
+
+  <section id="download" class="block alt">
+    <h2>ダウンロード</h2>
+    <p class="muted" id="ver">最新版を確認中...</p>
+    <div class="dl-grid">
+      <a class="dl" data-os="win" href="https://github.com/SHB2-dev/Community-Launcher/releases/latest"><b>Windows</b><small>インストーラー / ポータブル (.exe)</small></a>
+      <a class="dl" data-os="mac" href="https://github.com/SHB2-dev/Community-Launcher/releases/latest"><b>macOS</b><small>Intel / Apple Silicon (.dmg)</small></a>
+      <a class="dl" data-os="linux" href="https://github.com/SHB2-dev/Community-Launcher/releases/latest"><b>Linux</b><small>AppImage / deb</small></a>
+    </div>
+    <p class="muted small">署名していないため、初回はWindows SmartScreenやmacOSの警告が出ることがあります(macOSは右クリック→開く)。</p>
+  </section>
+
+  <section id="faq" class="block">
+    <h2>よくある質問</h2>
+    <details><summary>無料ですか?</summary><p>はい。ランチャーは無料です。Minecraft Java Editionのアカウントは別途必要です。</p></details>
+    <details><summary>Discordでログインが必要なのはなぜ?</summary><p>あなたが参加しているDiscordサーバーを調べ、そのサーバーに登録されたパックだけを表示するためです。取得するのはユーザー名と所属サーバー一覧(identify / guilds)のみです。</p></details>
+    <details><summary>MODは安全ですか?</summary><p>MODは任意のプログラムを実行できます。信頼できる管理者のサーバーのパックだけ起動してください。初回は配布元を確認するダイアログが出ます。</p></details>
+    <details><summary>オフラインモードは使えますか?</summary><p>オフライン認証のサーバー向けに用意しています。通常のサーバーではMicrosoftアカウントでログインしてください。</p></details>
+    <details><summary>公式のランチャーとの関係は?</summary><p>MojangやMicrosoftとは無関係の非公式ツールです。「Minecraft」はMojang ABの商標です。</p></details>
+  </section>
+</main>
+
+<footer>
+  <p>Community Launcher · <a href="https://github.com/SHB2-dev/Community-Launcher">GitHub</a> · Minecraftの非公式ランチャーです</p>
+</footer>
+<script src="script.js"></script>
+</body>
+</html>

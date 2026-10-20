@@ -1,0 +1,143 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2026-10-21T00:00:00+00:00",
+    "name": "Community Launcher Backend",
+    "author": "keinosuke575@gmail.com",
+    "description": "Community Launcher のサーバー一式(紹介サイト `/` + 管理ページ `/admin/` + Discord ログイン API)。GitHub のリポジトリから取得して起動し、Cloudflare Tunnel でそのまま公開できます。Node.js 22.5 以降が必要です。",
+    "features": null,
+    "docker_images": {
+        "Nodejs 24": "ghcr.io/parkervcp/yolks:nodejs_24",
+        "Nodejs 22": "ghcr.io/parkervcp/yolks:nodejs_22"
+    },
+    "file_denylist": [],
+    "startup": "bash deploy/start.sh",
+    "config": {
+        "files": "{}",
+        "startup": "{\"done\": \"listening on\"}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/ash\n# Community Launcher Backend installation script\napk add --no-cache git ca-certificates\n\ncd /mnt/server\n\nREPO=\"${GIT_ADDRESS}\"\n# 非公開リポジトリ用: アクセストークンがあれば URL に埋め込む\nif [ -n \"${GIT_TOKEN}\" ]; then\n    REPO=\"https://${GIT_TOKEN}@${GIT_ADDRESS#https://}\"\nfi\n\nif [ -d .git ]; then\n    echo \"既にリポジトリがあるため git pull します\"\n    git remote set-url origin \"${REPO}\"\n    git pull\nelse\n    if [ -n \"$(ls -A /mnt/server)\" ]; then\n        echo \"ディレクトリが空ではありません。既存ファイルを残したまま取得します\"\n        git init\n        git remote add origin \"${REPO}\"\n        git fetch origin \"${GIT_BRANCH}\"\n        git checkout -f -B \"${GIT_BRANCH}\" \"origin/${GIT_BRANCH}\"\n    else\n        git clone --single-branch --branch \"${GIT_BRANCH}\" \"${REPO}\" .\n    fi\nfi\n\ncd backend && npm install --omit=dev --no-audit --no-fund\necho \"-----------------------------------------\"\necho \"インストール完了。変数 DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET / PUBLIC_URL / CF_TUNNEL_TOKEN を設定して起動してください\"\n",
+            "container": "ghcr.io/parkervcp/installers:alpine",
+            "entrypoint": "ash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Git Repository",
+            "description": "取得するリポジトリのURL(https://...)",
+            "env_variable": "GIT_ADDRESS",
+            "default_value": "https://github.com/SHB2-dev/Community-Launcher.git",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|string|starts_with:https://",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Branch",
+            "description": "取得するブランチ",
+            "env_variable": "GIT_BRANCH",
+            "default_value": "main",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Access Token",
+            "description": "リポジトリが非公開のときのみ。read-only の Personal Access Token(Contents: Read)。公開リポジトリなら空欄",
+            "env_variable": "GIT_TOKEN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": "nullable|string|max:255",
+            "field_type": "text"
+        },
+        {
+            "name": "Auto Update",
+            "description": "起動時に git pull で最新版に更新する (1=する / 0=しない)",
+            "env_variable": "AUTO_UPDATE",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Client ID",
+            "description": "Discord Developer Portal のアプリの Client ID",
+            "env_variable": "DISCORD_CLIENT_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:32",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Client Secret",
+            "description": "Discord Developer Portal のアプリの Client Secret(OAuth2)",
+            "env_variable": "DISCORD_CLIENT_SECRET",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": "required|string|max:128",
+            "field_type": "text"
+        },
+        {
+            "name": "Public URL",
+            "description": "このバックエンドの公開URL(https://...、末尾スラッシュなし)。管理サイトのログインに使います。Discord の Redirects に <この値>/admin/callback を登録してください",
+            "env_variable": "PUBLIC_URL",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|starts_with:http|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "Cloudflare Tunnel Token",
+            "description": "Cloudflare Zero Trust で作成したトンネルのトークン。設定すると cloudflared を同時に起動します(空欄=トンネルなし)。トンネルの Public Hostname のサービスは http://localhost:<このサーバーのポート> にします",
+            "env_variable": "CF_TUNNEL_TOKEN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": "nullable|string|max:1000",
+            "field_type": "text"
+        },
+        {
+            "name": "CurseForge API Key",
+            "description": "CurseForge のモッドパックを使う場合のみ。console.curseforge.com で取得した API キー(空欄=CurseForge 無効)。キーはこのサーバーだけが保持し、ランチャーには渡しません",
+            "env_variable": "CURSEFORGE_API_KEY",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": "nullable|string|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "Allowed Redirects",
+            "description": "ランチャーのOAuthリダイレクトURI(カンマ区切り)。通常は変更不要",
+            "env_variable": "ALLOWED_REDIRECTS",
+            "default_value": "http://127.0.0.1:53682/callback",
+            "user_viewable": true,
+            "user_editable": false,
+            "rules": "required|string|max:500",
+            "field_type": "text"
+        },
+        {
+            "name": "Trust Proxy",
+            "description": "nginx や Cloudflare などのリバースプロキシ配下なら 1(クライアントIPを正しく扱うため)",
+            "env_variable": "TRUST_PROXY",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|in:0,1",
+            "field_type": "text"
+        }
+    ]
+}

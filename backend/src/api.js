@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('./db');
 const dc = require('./discord');
 const { serialize } = require('./servers');
+const curseforge = require('./curseforge');
 
 // 簡易レート制限(IPごと 1分に120回)
 const hits = new Map();
@@ -24,7 +25,7 @@ function bearer(req, res, next) {
 }
 
 const wrap = (fn) => (req, res) => fn(req, res).catch((e) => {
-  console.error(e);
+  if (!e.status || e.status >= 500) console.error(e); // 4xx(権限・入力ミス)はログに出さない
   res.status(e.status || 502).json({ error: e.message || 'upstream_error' });
 });
 
@@ -32,7 +33,7 @@ function createApi({ clientId, clientSecret, publicUrl, allowedRedirects, extra 
   const app = express();
   app.set('trust proxy', process.env.TRUST_PROXY === '1');
   app.use(rateLimit);
-  app.use(express.json({ limit: '10kb' }));
+  app.use(express.json({ limit: '64kb' })); // CurseForge の大きなパック(fileId 数百件)に対応
 
   app.get('/api/config', (_req, res) => res.json({ clientId, adminUrl: `${publicUrl}/admin/` }));
 
@@ -69,6 +70,18 @@ function createApi({ clientId, clientSecret, publicUrl, allowedRedirects, extra 
     if (!guilds.some((g) => g.id === row.guild_id)) return res.status(403).json({ error: 'not_member' });
     res.json({ server: serialize(row) });
   }));
+
+  // CurseForge パック用の中継(APIキーが設定されているときのみ)
+  if (curseforge.enabled()) {
+    app.post('/api/curseforge/files', bearer, wrap(async (req, res) => {
+      const ids = req.body?.fileIds;
+      if (!Array.isArray(ids)) return res.status(400).json({ error: 'bad_request' });
+      res.json({ files: await curseforge.filesInfo(ids) });
+    }));
+    app.get('/api/curseforge/pack', bearer, wrap(async (req, res) => {
+      res.json(await curseforge.latestPack(String(req.query.slug || '')));
+    }));
+  }
 
   extra?.(app);
   return app;

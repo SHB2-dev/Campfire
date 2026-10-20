@@ -12,17 +12,44 @@
 <div id="login" class="box" hidden>
   <h1>Discordサーバーの管理者向け</h1>
   <p>自分のDiscordサーバーで遊べるMODパックやバージョンを登録すると、サーバーのメンバーのランチャーにワンクリックで追加できるようになります。</p>
+  <p id="inviteHint" class="ok" hidden>編集者への招待を受け取りました。Discordでログインすると参加できます。</p>
   <a class="btn" href="/admin/login">Discordでログイン</a>
 </div>
 
 <div id="app" class="wrap" hidden>
-  <nav id="guilds"></nav>
+  <nav>
+    <div id="guilds"></div>
+    <div id="claim" hidden>
+      <h3>未登録のサーバー</h3>
+      <p class="muted small">最初に「登録する」を押した人が、そのサーバーの登録者(オーナー)になれます。管理者権限は不要です。</p>
+      <div id="claimList"></div>
+    </div>
+  </nav>
   <section>
+    <p id="notice" class="ok" hidden></p>
     <p id="empty" class="muted" hidden>管理できるDiscordサーバーがありません(サーバー管理権限が必要です)。</p>
     <div id="panel" hidden>
       <h1 id="gname"></h1>
       <div id="list"></div>
       <button id="new">＋ サーバーを追加</button>
+
+      <div id="team" class="team" hidden>
+        <h2>編集者</h2>
+        <p class="muted">管理者権限がなくても、招待リンクを受け取った人はこのDiscordサーバーのパックを追加・編集できます(サーバー参加者のみ使えます)。招待リンクを発行できるのは、Discordの管理者とこのサーバーの登録者(オーナー)です。</p>
+        <div id="owner"></div>
+        <div id="editors"></div>
+        <div class="inline">
+          <select id="invHours" aria-label="有効期間">
+            <option value="1">1時間</option><option value="24" selected>24時間</option><option value="168">7日</option><option value="720">30日</option>
+          </select>
+          <select id="invUses" aria-label="使用回数">
+            <option value="1" selected>1人まで</option><option value="5">5人まで</option><option value="20">20人まで</option>
+          </select>
+          <button id="invNew">招待リンクを発行</button>
+        </div>
+        <p id="invNote" class="muted"></p>
+        <div id="invites"></div>
+      </div>
 
       <form id="form" hidden>
         <h2 id="ftitle"></h2>
@@ -35,12 +62,14 @@
           <select name="type">
             <option value="vanilla">バニラ(バージョン指定)</option>
             <option value="modrinth">Modrinth のMODパック(おすすめ・自動更新)</option>
+            <option value="curseforge">CurseForge のMODパック(自動更新)</option>
             <option value="mrpack">.mrpack ファイルのURL</option>
+            <option value="zip">普通のzip(mods/ config/ を詰めたもの)</option>
             <option value="manifest">独自 manifest.json のURL</option>
           </select>
         </label>
 
-        <div data-for="vanilla">
+        <div data-for="vanilla zip">
           <label>Minecraft バージョン<select name="minecraft"></select></label>
           <label class="row"><input type="checkbox" id="showAll"> スナップショットや古いバージョンも表示</label>
           <label>MODローダー
@@ -54,7 +83,7 @@
           </label>
           <label>ローダーのバージョン(空欄=自動で最新)<input name="loaderVersion" maxlength="50"></label>
         </div>
-        <div data-for="modrinth mrpack manifest" hidden>
+        <div data-for="modrinth curseforge mrpack zip manifest" hidden>
           <label><span id="srcLabel"></span><input name="source" maxlength="500"></label>
           <p class="muted" id="srcHelp"></p>
         </div>

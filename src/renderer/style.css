@@ -30,6 +30,10 @@ details{margin-top:12px;font-size:13px}
 .card.pick:hover{border-color:#4f8cff}
 .badge{font-size:12px;padding:4px 10px;border-radius:20px;background:#2c3140}
 .card.added .badge{background:#1f5a3d}
+.update{display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:8px;background:#1f3a5f;font-size:14px}
+.update[hidden]{display:none}
+.update button{margin:0}
+.ver{font-size:12px}
 pre{height:120px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
 .bar{height:6px;background:#2c3140;border-radius:3px;overflow:hidden}
 #fill{height:100%;width:0;background:#4f8cff;transition:width .2s}

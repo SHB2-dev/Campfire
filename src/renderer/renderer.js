@@ -30,7 +30,10 @@ function avatar(guild, cls) {
   return el('span', `${cls} ph`, guild.name.slice(0, 1));
 }
 function describe(s) {
-  const kinds = { vanilla: `Minecraft ${s.minecraft}`, modrinth: 'MODパック (自動更新)', mrpack: 'MODパック', manifest: 'MODパック' };
+  const kinds = {
+    vanilla: `Minecraft ${s.minecraft}`, modrinth: 'MODパック (自動更新)', curseforge: 'MODパック (CurseForge)',
+    mrpack: 'MODパック', zip: `MODパック (zip) · ${s.minecraft}`, manifest: 'MODパック',
+  };
   const loader = s.type === 'vanilla' && s.loader !== 'vanilla' ? ` / ${s.loader}` : '';
   return kinds[s.type] + loader + (s.address ? ` · ${s.address}` : '');
 }
@@ -124,6 +127,15 @@ const reload = guard(async () => {
 })();
 
 api.on('log', addLog);
+api.on('update', (u) => {
+  $('update').hidden = false;
+  $('updateText').textContent = u.ready
+    ? `新しいバージョン ${u.version} の準備ができました。終了時に自動で更新されます`
+    : `新しいバージョン ${u.version} があります`;
+  $('updateBtn').hidden = !u.manual;
+});
+$('updateBtn').onclick = () => api.openReleases();
+api.appVersion().then((v) => { $('ver').textContent = v; });
 api.on('progress', (p) => { if (p.total) $('fill').style.width = (p.task / p.total * 100) + '%'; });
 api.on('closed', (c) => { addLog(`ゲーム終了 (code ${c})`); busy = false; refreshPlay(); $('fill').style.width = '0'; });
 

@@ -6,8 +6,11 @@ const db = require('./db');
 const dc = require('./discord');
 const { validate, serialize, mojangVersions, LOADERS } = require('./servers');
 const { wrap } = require('./api');
+const cf = require('./curseforge');
 
 const MAX_PER_GUILD = 25;
+const MAX_EDITORS = 20;
+const MAX_INVITES = 10;
 
 function cookies(req) {
   return Object.fromEntries((req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((p) => p[0]));
@@ -23,6 +26,8 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
   r.use((_req, res, next) => {
     res.set('Content-Security-Policy', "default-src 'self'; img-src 'self' https://cdn.discordapp.com; frame-ancestors 'none'");
     res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Referrer-Policy', 'no-referrer'); // ?invite= の招待コードを外部へ漏らさない
+    res.set('Cache-Control', 'no-store');
     next();
   });
 
@@ -52,28 +57,121 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
     next();
   };
   // Cookie 認証の変更系は JSON のみ許可(クロスサイトのフォーム送信を防ぐ)
+  // (ボディのない DELETE もあるため、req.is ではなくヘッダーで判定)
   const jsonOnly = (req, res, next) =>
-    req.method === 'GET' || req.is('application/json') ? next() : res.status(415).json({ error: 'json_only' });
+    req.method === 'GET' || /^application\/json/i.test(req.headers['content-type'] || '') ? next() : res.status(415).json({ error: 'json_only' });
 
   r.use('/api', express.json({ limit: '10kb' }), auth, jsonOnly);
 
+  const fail = (status, error) => Object.assign(new Error(error), { status });
+
+  // 参加中のサーバーのうち、管理者権限 or 招待された編集者として編集できるもの(role 付き)
   const manageable = async (req) => {
     const guilds = await dc.userGuilds(req.session);
-    if (!guilds) throw Object.assign(new Error('unauthorized'), { status: 401 });
-    return guilds.filter(dc.canManage);
+    if (!guilds) throw fail(401, 'unauthorized');
+    const out = [];
+    const uid = req.session.user_id;
+    for (const g of guilds) {
+      if (dc.canManage(g)) out.push({ ...g, role: 'admin' });
+      else if (db.getOwner(g.id)?.user_id === uid) out.push({ ...g, role: 'owner' });
+      else if (db.isEditor(g.id, uid)) out.push({ ...g, role: 'editor' });
+    }
+    return { out, all: guilds };
   };
-  const guildOf = async (req) => {
-    const g = (await manageable(req)).find((x) => x.id === req.params.gid);
-    if (!g) throw Object.assign(new Error('forbidden'), { status: 403 });
+  // admin(Discordの管理権限) と owner(最初に登録した人) は、編集者の招待・管理もできる
+  const canInvite = (role) => role === 'admin' || role === 'owner';
+  const guildOf = async (req, { inviteRights = false } = {}) => {
+    const g = (await manageable(req)).out.find((x) => x.id === req.params.gid);
+    if (!g) throw fail(403, '権限がありません');
+    if (inviteRights && !canInvite(g.role)) throw fail(403, 'この操作はサーバーの管理者または登録者のみ可能です');
     return g;
   };
 
   r.get('/api/me', wrap(async (req, res) => {
-    const guilds = await manageable(req);
-    res.json({ user: { id: req.session.user_id, name: req.session.username }, guilds: guilds.map(dc.publicGuild) });
+    const { out, all } = await manageable(req);
+    const mine = new Set(out.map((g) => g.id));
+    // まだ誰も登録していないサーバーは、参加者なら誰でも最初の登録者(オーナー)になれる
+    const claimable = all.filter((g) => !mine.has(g.id) && !db.isRegistered(g.id)).map(dc.publicGuild);
+    res.json({
+      user: { id: req.session.user_id, name: req.session.username },
+      guilds: out.map((g) => ({ ...dc.publicGuild(g), role: g.role })),
+      claimable,
+    });
   }));
 
-  r.get('/api/versions', wrap(async (_req, res) => res.json({ versions: await mojangVersions(), loaders: LOADERS })));
+  // 「このサーバーを登録する」: 先着1人がオーナーになる
+  r.post('/api/guilds/:gid/claim', wrap(async (req, res) => {
+    const guilds = await dc.userGuilds(req.session);
+    if (!guilds) throw fail(401, 'unauthorized');
+    const g = guilds.find((x) => x.id === req.params.gid);
+    if (!g) throw fail(403, 'このDiscordサーバーに参加していません');
+    if (db.isRegistered(g.id) || !db.claimOwner(g.id, req.session.user_id, req.session.username)) {
+      throw fail(409, 'このサーバーは既に登録されています。編集者になるには招待リンクが必要です');
+    }
+    res.json({ guildId: g.id });
+  }));
+
+  // 管理者がオーナーを外す(誤登録・乗っ取り対策)
+  r.delete('/api/guilds/:gid/owner', wrap(async (req, res) => {
+    const g = await guildOf(req);
+    if (g.role !== 'admin') throw fail(403, 'オーナーを外せるのはDiscordサーバーの管理者のみです');
+    res.json({ ok: !!db.removeOwner(g.id) });
+  }));
+
+  // --- 招待リンクで編集者を追加 ---
+  const randomCode = () => crypto.randomBytes(12).toString('base64url');
+
+  // 招待コードを使って、自分をそのサーバーの編集者にする(サーバー参加者のみ)
+  r.post('/api/invite/redeem', wrap(async (req, res) => {
+    const code = typeof req.body?.code === 'string' ? req.body.code : '';
+    const inv = db.getInvite(code);
+    if (!inv || inv.expires_at < Date.now() || inv.uses >= inv.max_uses) throw fail(400, '招待リンクが無効か、期限切れです');
+    const guilds = await dc.userGuilds(req.session);
+    if (!guilds) throw fail(401, 'unauthorized');
+    const g = guilds.find((x) => x.id === inv.guild_id);
+    if (!g) throw fail(403, 'このDiscordサーバーに参加していないため、招待を使えません');
+    const already = dc.canManage(g) || db.isEditor(g.id, req.session.user_id) || db.getOwner(g.id)?.user_id === req.session.user_id;
+    if (!already) {
+      if (db.countEditors(g.id) >= MAX_EDITORS) throw fail(400, `編集者は1サーバーにつき${MAX_EDITORS}人までです`);
+      if (!db.useInvite(code)) throw fail(400, '招待リンクが無効か、期限切れです');
+      db.addEditor(g.id, req.session.user_id, req.session.username, inv.created_by);
+    }
+    res.json({ guildId: g.id, name: g.name });
+  }));
+
+  r.get('/api/guilds/:gid/editors', wrap(async (req, res) => {
+    await guildOf(req, { inviteRights: true });
+    const owner = db.getOwner(req.params.gid);
+    res.json({
+      owner: owner && { userId: owner.user_id, name: owner.username },
+      editors: db.listEditors(req.params.gid).map((e) => ({ userId: e.user_id, name: e.username })),
+      invites: db.activeInvites(req.params.gid).map((i) => ({
+        code: i.code, url: `${publicUrl}/admin/?invite=${i.code}`, expiresAt: i.expires_at, usesLeft: i.max_uses - i.uses,
+      })),
+    });
+  }));
+
+  r.post('/api/guilds/:gid/invites', wrap(async (req, res) => {
+    await guildOf(req, { inviteRights: true });
+    if (db.activeInvites(req.params.gid).length >= MAX_INVITES) throw fail(400, `有効な招待リンクは${MAX_INVITES}個までです。不要なものを無効化してください`);
+    const hours = Math.min(Math.max(Number(req.body?.hours) || 24, 1), 24 * 30);
+    const maxUses = Math.min(Math.max(Number(req.body?.maxUses) || 1, 1), 20);
+    const code = randomCode();
+    db.createInvite({ code, guildId: req.params.gid, createdBy: req.session.user_id, expiresAt: Date.now() + hours * 3600_000, maxUses });
+    res.json({ url: `${publicUrl}/admin/?invite=${code}` });
+  }));
+
+  r.delete('/api/guilds/:gid/invites/:code', wrap(async (req, res) => {
+    await guildOf(req, { inviteRights: true });
+    res.json({ ok: !!db.deleteInvite(req.params.gid, req.params.code) });
+  }));
+
+  r.delete('/api/guilds/:gid/editors/:userId', wrap(async (req, res) => {
+    await guildOf(req, { inviteRights: true });
+    res.json({ ok: !!db.removeEditor(req.params.gid, req.params.userId) });
+  }));
+
+  r.get('/api/versions', wrap(async (_req, res) => res.json({ versions: await mojangVersions(), loaders: LOADERS, curseforge: cf.enabled() })));
 
   r.get('/api/guilds/:gid/servers', wrap(async (req, res) => {
     await guildOf(req);
@@ -82,7 +180,7 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
 
   r.post('/api/guilds/:gid/servers', wrap(async (req, res) => {
     await guildOf(req);
-    const { value, error } = await validate(req.body);
+    const { value, error } = await validate(req.body, { curseforge: cf.enabled() });
     if (error) return res.status(400).json({ error });
     if (db.countServers(req.params.gid) >= MAX_PER_GUILD) return res.status(400).json({ error: `1サーバーにつき${MAX_PER_GUILD}個までです` });
     const id = db.addServer({ ...value, guildId: req.params.gid }, req.session.user_id);
@@ -91,7 +189,7 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
 
   r.put('/api/guilds/:gid/servers/:id', wrap(async (req, res) => {
     await guildOf(req);
-    const { value, error } = await validate(req.body);
+    const { value, error } = await validate(req.body, { curseforge: cf.enabled() });
     if (error) return res.status(400).json({ error });
     const n = db.updateServer(Number(req.params.id), { ...value, guildId: req.params.gid });
     res.status(n ? 200 : 404).json({ ok: !!n });

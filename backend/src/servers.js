@@ -1,6 +1,6 @@
 // サーバー登録の検証・整形
 const LOADERS = ['vanilla', 'fabric', 'quilt', 'forge', 'neoforge'];
-const TYPES = ['vanilla', 'modrinth', 'mrpack', 'manifest'];
+const TYPES = ['vanilla', 'modrinth', 'curseforge', 'mrpack', 'zip', 'manifest'];
 
 let vCache = { at: 0, list: [] };
 async function mojangVersions() {
@@ -20,7 +20,7 @@ const httpsUrl = (u) => {
 };
 
 // 戻り値: { value } か { error }
-async function validate(body) {
+async function validate(body, { curseforge = false } = {}) {
   const b = body || {};
   const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
   const name = str(b.name, 30);
@@ -35,7 +35,7 @@ async function validate(body) {
     type, source: '', minecraft: '', loader: 'vanilla', loaderVersion: '',
   };
 
-  if (type === 'vanilla') {
+  if (type === 'vanilla' || type === 'zip') {
     const mc = str(b.minecraft, 40);
     const list = await mojangVersions();
     if (!list.some((x) => x.id === mc)) return { error: 'Minecraft のバージョンが存在しません' };
@@ -44,6 +44,18 @@ async function validate(body) {
     const lv = str(b.loaderVersion, 50);
     if (lv && !/^[\w.+-]+$/.test(lv)) return { error: 'ローダーのバージョンが不正です' };
     Object.assign(v, { minecraft: mc, loader, loaderVersion: lv });
+    if (type === 'zip') {
+      const url = httpsUrl(str(b.source, 500));
+      if (!url) return { error: 'https:// で始まるzipファイルのURLを入力してください' };
+      v.source = url;
+    }
+  } else if (type === 'curseforge') {
+    if (!curseforge) return { error: 'このサーバーでは CurseForge が有効になっていません(API キー未設定)' };
+    const raw = str(b.source, 500);
+    const slug = /curseforge\.com\/minecraft\/modpacks\/([a-z0-9-]+)/i.exec(raw)?.[1];
+    const url = slug ? null : httpsUrl(raw);
+    if (!slug && !url) return { error: 'CurseForge のモッドパックURL(https://www.curseforge.com/minecraft/modpacks/...)か、パックzipのURLを入力してください' };
+    v.source = slug ? slug.toLowerCase() : url;
   } else if (type === 'modrinth') {
     const raw = str(b.source, 300);
     const slug = /modrinth\.com\/modpack\/([\w-]+)/.exec(raw)?.[1] || (/^[\w-]{2,64}$/.test(raw) ? raw : null);

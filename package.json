@@ -1,0 +1,49 @@
+{
+  "name": "community-launcher",
+  "version": "0.1.0",
+  "description": "Minecraft Java コミュニティサーバー向けランチャー",
+  "author": "Community Launcher",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "set-backend": "node scripts/set-backend.js",
+    "dist": "electron-builder --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:linux": "electron-builder --linux --publish never"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "minecraft-launcher-core": "^3.18.2",
+    "msmc": "^5.0.5"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.community.launcher",
+    "productName": "Community Launcher",
+    "files": ["src/**/*", "package.json"],
+    "directories": { "output": "dist" },
+    "artifactName": "CommunityLauncher-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }]
+    },
+    "linux": {
+      "category": "Game",
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] },
+        { "target": "deb", "arch": ["x64"] }
+      ]
+    }
+  }
+}

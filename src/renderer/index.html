@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://cdn.discordapp.com; style-src 'self'; script-src 'self'">
+<title>Community Launcher</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav id="rail" aria-label="Discordサーバー">
+  <button id="home" class="rail-btn on" title="マイリスト">★</button>
+  <div id="guilds"></div>
+  <button id="reload" class="rail-btn" title="更新">⟳</button>
+</nav>
+
+<aside>
+  <h1>Launcher</h1>
+  <section>
+    <h2>1. Discord</h2>
+    <div id="dc" class="muted">未ログイン</div>
+    <button id="dcin">Discordでログイン</button>
+    <button id="dcout" class="ghost" hidden>ログアウト</button>
+  </section>
+  <section>
+    <h2>2. Minecraft</h2>
+    <div id="acct" class="muted">未ログイン</div>
+    <button id="ms">Microsoftでログイン</button>
+    <details><summary>オフラインモード</summary>
+      <input id="offname" placeholder="ユーザー名"><button id="off" class="ghost">使用</button>
+    </details>
+  </section>
+  <details class="adv">
+    <summary>詳細設定</summary>
+    <label>Javaパス(空=自動)<input id="java"></label>
+    <label>最大メモリ<input id="max"></label>
+    <button id="save" class="ghost">保存</button>
+    <button id="folder" class="ghost">フォルダを開く</button>
+    <button id="admin" class="ghost">管理者の方はこちら</button>
+  </details>
+</aside>
+
+<main>
+  <div class="head"><h2 id="title">マイリスト</h2></div>
+  <div id="view" class="view"></div>
+  <pre id="log"></pre>
+  <div class="bar"><div id="fill"></div></div>
+  <div class="foot"><span id="sel" class="muted">サーバーを選んでください</span><button id="play" disabled>プレイ</button></div>
+</main>
+<script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理サイト - Community Launcher</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<header><b>Community Launcher 管理</b><span id="me"></span><button id="logout" class="ghost" hidden>ログアウト</button></header>
+
+<div id="login" class="box" hidden>
+  <h1>Discordサーバーの管理者向け</h1>
+  <p>自分のDiscordサーバーで遊べるMODパックやバージョンを登録すると、サーバーのメンバーのランチャーにワンクリックで追加できるようになります。</p>
+  <a class="btn" href="/admin/login">Discordでログイン</a>
+</div>
+
+<div id="app" class="wrap" hidden>
+  <nav id="guilds"></nav>
+  <section>
+    <p id="empty" class="muted" hidden>管理できるDiscordサーバーがありません(サーバー管理権限が必要です)。</p>
+    <div id="panel" hidden>
+      <h1 id="gname"></h1>
+      <div id="list"></div>
+      <button id="new">＋ サーバーを追加</button>
+
+      <form id="form" hidden>
+        <h2 id="ftitle"></h2>
+        <label>サーバー名(ランチャーに表示 例: s1)<input name="name" maxlength="30" required></label>
+        <label>説明(任意)<input name="description" maxlength="300"></label>
+        <label>接続先アドレス(任意 例: play.example.com:25565)<input name="address" maxlength="100"></label>
+        <label class="row"><input type="checkbox" name="autoConnect" checked> 起動後に自動で接続する</label>
+
+        <label>遊び方
+          <select name="type">
+            <option value="vanilla">バニラ(バージョン指定)</option>
+            <option value="modrinth">Modrinth のMODパック(おすすめ・自動更新)</option>
+            <option value="mrpack">.mrpack ファイルのURL</option>
+            <option value="manifest">独自 manifest.json のURL</option>
+          </select>
+        </label>
+
+        <div data-for="vanilla">
+          <label>Minecraft バージョン<select name="minecraft"></select></label>
+          <label class="row"><input type="checkbox" id="showAll"> スナップショットや古いバージョンも表示</label>
+          <label>MODローダー
+            <select name="loader">
+              <option value="vanilla">なし(バニラ)</option>
+              <option value="fabric">Fabric</option>
+              <option value="quilt">Quilt</option>
+              <option value="forge">Forge</option>
+              <option value="neoforge">NeoForge</option>
+            </select>
+          </label>
+          <label>ローダーのバージョン(空欄=自動で最新)<input name="loaderVersion" maxlength="50"></label>
+        </div>
+        <div data-for="modrinth mrpack manifest" hidden>
+          <label><span id="srcLabel"></span><input name="source" maxlength="500"></label>
+          <p class="muted" id="srcHelp"></p>
+        </div>
+
+        <p id="err" class="err"></p>
+        <button type="submit">保存</button>
+        <button type="button" id="cancel" class="ghost">キャンセル</button>
+      </form>
+    </div>
+  </section>
+</div>
+<script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;font-family:system-ui,"Yu Gothic UI","Hiragino Sans",sans-serif;background:#14161c;color:#e6e8ee}
+#rail{width:72px;background:#0e1014;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;overflow-y:auto}
+#guilds{display:flex;flex-direction:column;gap:8px;flex:1;align-items:center}
+.rail-btn{width:48px;height:48px;padding:0;margin:0;border-radius:50%;background:#2c3140;font-size:20px;display:grid;place-items:center;overflow:hidden;border:2px solid transparent}
+.rail-btn.on{border-color:#4f8cff;border-radius:16px}
+.av{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
+.ph{display:grid;place-items:center;background:#3a4157;font-weight:700}
+aside{width:250px;padding:18px;background:#1b1e27;overflow:auto}
+main{flex:1;display:flex;flex-direction:column;padding:20px;gap:12px;min-width:0}
+h1{margin:0 0 4px;font-size:22px}
+h2{font-size:13px;margin:16px 0 8px;color:#8b93a7}
+.head h2{margin:0;font-size:18px;color:#e6e8ee}
+.muted{color:#8b93a7}
+label{display:block;font-size:12px;color:#8b93a7;margin-bottom:8px}
+input{width:100%;margin-top:4px;padding:7px;border-radius:6px;border:1px solid #2c3140;background:#14161c;color:inherit}
+button{padding:9px 14px;border:0;border-radius:6px;background:#4f8cff;color:#fff;font-weight:600;cursor:pointer;margin:6px 6px 0 0;font-family:inherit}
+button.ghost{background:#2c3140}
+button.sm{padding:5px 10px;margin:0;font-size:12px}
+button:disabled{opacity:.4;cursor:default}
+button[hidden]{display:none}
+details{margin-top:12px;font-size:13px}
+.view{flex:1;overflow:auto;min-height:120px;display:flex;flex-direction:column;gap:8px}
+.card{display:flex;gap:12px;align-items:center;padding:12px;background:#1b1e27;border:1px solid #2c3140;border-radius:10px;cursor:pointer;text-align:left;color:inherit;width:100%;margin:0;font-weight:400}
+.card.on{border-color:#4f8cff;background:#212738}
+.card.gone{opacity:.5}
+.card .info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.card b{font-size:16px}
+.card small{color:#8b93a7}
+.card.pick:hover{border-color:#4f8cff}
+.badge{font-size:12px;padding:4px 10px;border-radius:20px;background:#2c3140}
+.card.added .badge{background:#1f5a3d}
+pre{height:120px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.bar{height:6px;background:#2c3140;border-radius:3px;overflow:hidden}
+#fill{height:100%;width:0;background:#4f8cff;transition:width .2s}
+.foot{display:flex;justify-content:space-between;align-items:center}
+#play{padding:14px 48px;font-size:16px;background:#2fb872;margin:0}

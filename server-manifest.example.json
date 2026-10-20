@@ -1,0 +1,13 @@
+{
+  "minecraft": "1.21.1",
+  "loader": "neoforge",
+  "loaderVersion": "",
+  "strictMods": true,
+  "files": [
+    {
+      "path": "mods/example.jar",
+      "url": "https://example.com/mods/example.jar",
+      "sha1": "0000000000000000000000000000000000000000"
+    }
+  ]
+}

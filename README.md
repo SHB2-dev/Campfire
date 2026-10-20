@@ -1,4 +1,4 @@
-# Campfire
+# Packhearth
 
 初心者でも MOD やバージョン違いのマイクラを楽しめる、Discord コミュニティ向けランチャー。
 Windows / macOS / Linux 対応(Electron)。
@@ -57,7 +57,7 @@ HTTPS のリバースプロキシ配下で公開してください(`PUBLIC_URL` 
 
 ### Pterodactyl (egg) + Cloudflare Tunnel で公開する
 
-1. [deploy/pterodactyl/egg-campfire-backend.json](deploy/pterodactyl/egg-campfire-backend.json) をパネルにインポートし、サーバーを作成
+1. [deploy/pterodactyl/egg-packhearth-backend.json](deploy/pterodactyl/egg-packhearth-backend.json) をパネルにインポートし、サーバーを作成
 2. Cloudflare Zero Trust → Networks → Tunnels でトンネルを作成し、**トークン**を控える
 3. トンネルの Public Hostname に `launcher.example.com` を追加し、サービスを `http://localhost:<サーバーのポート>` にする
 4. パネルの変数を設定: `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` / `PUBLIC_URL=https://launcher.example.com` / `CF_TUNNEL_TOKEN`(+ 非公開リポジトリなら `GIT_TOKEN`)

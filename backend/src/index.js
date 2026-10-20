@@ -5,7 +5,12 @@ const { mountAdmin } = require('./admin');
 
 // 紹介サイト(リポジトリの site/)をルートで配信する
 const siteDir = process.env.SITE_DIR || path.join(__dirname, '..', '..', 'site');
-function mountSite(app) {
+function mountSite(app, publicUrl) {
+  // 検索エンジン向け。管理サイトとAPIはインデックスさせない
+  app.get('/robots.txt', (_req, res) =>
+    res.type('text/plain').send(`User-agent: *\nDisallow: /admin/\nDisallow: /api/\nDisallow: /auth/\nSitemap: ${publicUrl}/sitemap.xml\n`));
+  app.get('/sitemap.xml', (_req, res) =>
+    res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${publicUrl}/</loc></url></urlset>\n`));
   app.use((_req, res, next) => {
     res.set('Content-Security-Policy', "default-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; frame-ancestors 'none'");
     res.set('X-Content-Type-Options', 'nosniff');
@@ -31,6 +36,6 @@ setInterval(() => require('./db').purgeExpiredSessions(), 3600_000).unref();
 const port = Number(process.env.PORT || process.env.SERVER_PORT || 8787);
 const app = createApi({
   clientId, clientSecret, publicUrl, allowedRedirects,
-  extra: (a) => { mountAdmin(a, { clientId, clientSecret, publicUrl }); mountSite(a); },
+  extra: (a) => { mountAdmin(a, { clientId, clientSecret, publicUrl }); mountSite(a, publicUrl); },
 });
 app.listen(port, () => console.log(`listening on :${port}  admin: ${publicUrl}/admin/`));

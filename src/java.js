@@ -7,7 +7,7 @@ const RUNTIME_INDEX = 'https://launchermeta.mojang.com/v1/products/java-runtime/
 const VERSION_MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 
 async function getJson(url) {
-  const r = await fetch(url, { headers: { 'User-Agent': 'campfire-launcher' } });
+  const r = await fetch(url, { headers: { 'User-Agent': 'packhearth-launcher' } });
   if (!r.ok) throw new Error(`${url} -> ${r.status}`);
   return r.json();
 }

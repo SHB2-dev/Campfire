@@ -1,5 +1,5 @@
 {
-  "name": "campfire-launcher",
+  "name": "packhearth-launcher",
   "version": "0.1.0",
   "description": "Minecraft Java コミュニティサーバー向けランチャー",
   "author": "SHB2-dev",
@@ -24,8 +24,8 @@
     "electron-builder": "^25.0.0"
   },
   "build": {
-    "appId": "dev.shb2.campfire",
-    "productName": "Campfire",
+    "appId": "dev.shb2.packhearth",
+    "productName": "Packhearth",
     "files": [
       "src/**/*",
       "package.json"
@@ -37,10 +37,10 @@
       {
         "provider": "github",
         "owner": "SHB2-dev",
-        "repo": "Campfire"
+        "repo": "Packhearth"
       }
     ],
-    "artifactName": "Campfire-${version}-${os}-${arch}.${ext}",
+    "artifactName": "Packhearth-${version}-${os}-${arch}.${ext}",
     "win": {
       "target": [
         {

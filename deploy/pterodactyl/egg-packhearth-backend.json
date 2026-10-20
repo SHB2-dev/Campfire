@@ -5,9 +5,9 @@
         "update_url": null
     },
     "exported_at": "2026-10-21T00:00:00+00:00",
-    "name": "Campfire Backend",
+    "name": "Packhearth Backend",
     "author": "keinosuke575@gmail.com",
-    "description": "Campfire のサーバー一式(紹介サイト `/` + 管理ページ `/admin/` + Discord ログイン API)。GitHub のリポジトリから取得して起動し、Cloudflare Tunnel でそのまま公開できます。Node.js 22.5 以降が必要です。",
+    "description": "Packhearth のサーバー一式(紹介サイト `/` + 管理ページ `/admin/` + Discord ログイン API)。GitHub のリポジトリから取得して起動し、Cloudflare Tunnel でそのまま公開できます。Node.js 22.5 以降が必要です。",
     "features": null,
     "docker_images": {
         "Nodejs 24": "ghcr.io/parkervcp/yolks:nodejs_24",
@@ -23,7 +23,7 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!/bin/ash\n# Campfire Backend installation script\napk add --no-cache git ca-certificates\n\ncd /mnt/server\n\nREPO=\"${GIT_ADDRESS}\"\n# 非公開リポジトリ用: アクセストークンがあれば URL に埋め込む\nif [ -n \"${GIT_TOKEN}\" ]; then\n    REPO=\"https://${GIT_TOKEN}@${GIT_ADDRESS#https://}\"\nfi\n\nif [ -d .git ]; then\n    echo \"既にリポジトリがあるため git pull します\"\n    git remote set-url origin \"${REPO}\"\n    git pull\nelse\n    if [ -n \"$(ls -A /mnt/server)\" ]; then\n        echo \"ディレクトリが空ではありません。既存ファイルを残したまま取得します\"\n        git init\n        git remote add origin \"${REPO}\"\n        git fetch origin \"${GIT_BRANCH}\"\n        git checkout -f -B \"${GIT_BRANCH}\" \"origin/${GIT_BRANCH}\"\n    else\n        git clone --single-branch --branch \"${GIT_BRANCH}\" \"${REPO}\" .\n    fi\nfi\n\ncd backend && npm install --omit=dev --no-audit --no-fund\necho \"-----------------------------------------\"\necho \"インストール完了。変数 DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET / PUBLIC_URL / CF_TUNNEL_TOKEN を設定して起動してください\"\n",
+            "script": "#!/bin/ash\n# Packhearth Backend installation script\napk add --no-cache git ca-certificates\n\ncd /mnt/server\n\nREPO=\"${GIT_ADDRESS}\"\n# 非公開リポジトリ用: アクセストークンがあれば URL に埋め込む\nif [ -n \"${GIT_TOKEN}\" ]; then\n    REPO=\"https://${GIT_TOKEN}@${GIT_ADDRESS#https://}\"\nfi\n\nif [ -d .git ]; then\n    echo \"既にリポジトリがあるため git pull します\"\n    git remote set-url origin \"${REPO}\"\n    git pull\nelse\n    if [ -n \"$(ls -A /mnt/server)\" ]; then\n        echo \"ディレクトリが空ではありません。既存ファイルを残したまま取得します\"\n        git init\n        git remote add origin \"${REPO}\"\n        git fetch origin \"${GIT_BRANCH}\"\n        git checkout -f -B \"${GIT_BRANCH}\" \"origin/${GIT_BRANCH}\"\n    else\n        git clone --single-branch --branch \"${GIT_BRANCH}\" \"${REPO}\" .\n    fi\nfi\n\ncd backend && npm install --omit=dev --no-audit --no-fund\necho \"-----------------------------------------\"\necho \"インストール完了。変数 DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET / PUBLIC_URL / CF_TUNNEL_TOKEN を設定して起動してください\"\n",
             "container": "ghcr.io/parkervcp/installers:alpine",
             "entrypoint": "ash"
         }
@@ -33,7 +33,7 @@
             "name": "Git Repository",
             "description": "取得するリポジトリのURL(https://...)",
             "env_variable": "GIT_ADDRESS",
-            "default_value": "https://github.com/SHB2-dev/Campfire.git",
+            "default_value": "https://github.com/SHB2-dev/Packhearth.git",
             "user_viewable": true,
             "user_editable": false,
             "rules": "required|string|starts_with:https://",

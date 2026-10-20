@@ -3,7 +3,7 @@
 //  - Windows ポータブル / macOS(未署名) / deb: 自動更新できないため「新しい版があります」を通知してダウンロードページへ誘導
 const { app, dialog, shell } = require('electron');
 
-const RELEASES_URL = 'https://github.com/SHB2-dev/Campfire/releases/latest';
+const RELEASES_URL = 'https://github.com/SHB2-dev/Packhearth/releases/latest';
 const CHECK_INTERVAL = 6 * 3600 * 1000;
 
 function canSelfUpdate() {

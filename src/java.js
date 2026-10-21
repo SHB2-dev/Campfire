@@ -41,7 +41,7 @@ function findBins(dir) {
   return null;
 }
 
-async function ensureJava(component, root, log) {
+async function ensureJava(component, root, log, onProgress) {
   const dir = path.join(root, 'runtime', component);
   const marker = path.join(dir, '.complete');
   const found = findBins(dir);
@@ -73,7 +73,8 @@ async function ensureJava(component, root, log) {
         fs.mkdirSync(path.dirname(t.dest), { recursive: true });
         fs.writeFileSync(t.dest, buf, { mode: t.f.executable ? 0o755 : 0o644 });
       }
-      if (++done % 40 === 0) log(`Java 準備中 ${done}/${todo.length}`);
+      onProgress?.('Java をダウンロード中', ++done, todo.length);
+      if (done % 40 === 0) log(`Java 準備中 ${done}/${todo.length}`);
     }
   };
   await Promise.all(Array.from({ length: 8 }, worker));

@@ -39,5 +39,8 @@ details{margin-top:12px;font-size:13px}
 pre{height:120px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
 .bar{height:6px;background:#2c3140;border-radius:3px;overflow:hidden}
 #fill{height:100%;width:0;background:#4f8cff;transition:width .2s}
+#fill.indet{width:30%;transition:none;animation:slide 1.2s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-30%}100%{margin-left:100%}}
+.progress-text{font-size:13px;color:#aab2c5;min-height:1.3em}
 .foot{display:flex;justify-content:space-between;align-items:center}
 #play{padding:14px 48px;font-size:16px;background:#2fb872;margin:0}

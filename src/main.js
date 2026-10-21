@@ -65,6 +65,20 @@ function readToken(d) {
 const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch, data);
 const log = (m) => send('log', m);
 
+// ダウンロードの進捗(何を・何%)を画面へ送る。頻繁に送りすぎないよう0.1秒に1回に間引く
+// total が無いときは「処理中」の表示になる
+const MCLC_LABELS = { assets: 'アセット', classes: 'ライブラリ', natives: 'ネイティブ', 'assets-copy': 'アセットのコピー', 'classes-custom': 'ライブラリ', forge: 'Forge' };
+function makeProgress() {
+  let last = 0;
+  return (label, done, total) => {
+    const now = Date.now();
+    const finished = total && done >= total;
+    if (!finished && now - last < 100) return;
+    last = now;
+    send('progress', { label, done, total: total || 0 });
+  };
+}
+
 async function backend(pathname, opts = {}) {
   const token = readToken(loadSettings().discord);
   const res = await fetch(BACKEND_URL + pathname, {
@@ -250,20 +264,26 @@ ipcMain.handle('play', async (_e, id) => {
     files: (ids) => backend('/api/curseforge/files', { method: 'POST', body: JSON.stringify({ fileIds: ids }) }),
   };
   const resolved = await resolveEntry(entry, path.join(root, 'cache'), log, { curseforge });
-  const sync = await syncFiles(resolved, gameDir, log);
+  const onProgress = makeProgress();
+  const sync = await syncFiles(resolved, gameDir, log, onProgress);
   log(sync.downloaded || sync.removed || sync.packChanged
     ? `更新しました (取得 ${sync.downloaded} / 削除 ${sync.removed})`
     : '最新の状態です');
 
   const javaBins = settings.javaPath
     ? { java: settings.javaPath, gameJava: settings.javaPath }
-    : await ensureJava(await componentFor(resolved.minecraft), root, log);
-  const custom = await ensureLoader(resolved, root, javaBins.java, log);
+    : await ensureJava(await componentFor(resolved.minecraft), root, log, onProgress);
+  const custom = await ensureLoader(resolved, root, javaBins.java, log, onProgress);
 
   const launcher = new Client();
-  launcher.on('debug', (m) => log(m));
-  launcher.on('data', (m) => log(String(m).trimEnd()));
-  launcher.on('progress', (p) => send('progress', p));
+  // Minecraft 本体のダウンロードは進捗バーに任せ、ログには出さない
+  launcher.on('debug', (m) => { if (!/^(\[MCLC\]:\s*)?(Downloading|Downloaded|Attempting to download)/i.test(String(m))) log(m); });
+  let gameStarted = false;
+  launcher.on('data', (m) => {
+    if (!gameStarted) { gameStarted = true; send('progress', { label: '' }); } // ゲームが動き出したら進捗表示を消す
+    log(String(m).trimEnd());
+  });
+  launcher.on('progress', (p) => onProgress(`Minecraft をダウンロード中(${MCLC_LABELS[p.type] || p.type})`, p.task, p.total));
   launcher.on('close', (code) => send('closed', code));
 
   const opts = {

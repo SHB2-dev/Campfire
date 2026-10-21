@@ -9,14 +9,19 @@ let view = 'home'; // 'home' | guild id
 let selectedId = null;
 let busy = false;
 
-const addLog = (m) => { logEl.textContent += m + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+const MAX_LOG_CHARS = 20000; // ログが長くなりすぎないよう、古い行から捨てる
+const addLog = (m) => {
+  logEl.textContent += m + '\n';
+  if (logEl.textContent.length > MAX_LOG_CHARS) logEl.textContent = logEl.textContent.slice(-MAX_LOG_CHARS * 0.75);
+  logEl.scrollTop = logEl.scrollHeight;
+};
 const refreshPlay = () => {
   const item = myList.find((i) => i.id === selectedId);
   $('play').disabled = busy || !account || !item || item.gone;
   $('sel').textContent = item ? `${item.guild.name} / ${item.entry.name}` : 'サーバーを選んでください';
 };
 const guard = (fn) => async (...a) => {
-  try { await fn(...a); } catch (e) { addLog('エラー: ' + (e.message || e)); busy = false; refreshPlay(); }
+  try { await fn(...a); } catch (e) { addLog('エラー: ' + (e.message || e)); busy = false; refreshPlay(); showProgress(null); }
 };
 
 function el(tag, cls, text) {
@@ -159,8 +164,23 @@ api.on('update', (u) => {
 });
 $('updateBtn').onclick = () => api.openReleases();
 api.appVersion().then((v) => { $('ver').textContent = v; });
-api.on('progress', (p) => { if (p.total) $('fill').style.width = (p.task / p.total * 100) + '%'; });
-api.on('closed', (c) => { addLog(`ゲーム終了 (code ${c})`); busy = false; refreshPlay(); $('fill').style.width = '0'; });
+// ダウンロードの進捗: 「何を・何%・(件数)」。件数が分からない処理は動いている表示だけ
+function showProgress(p) {
+  const bar = $('fill');
+  const text = $('progressText');
+  if (!p || !p.label) { bar.classList.remove('indet'); bar.style.width = '0'; text.textContent = ''; return; }
+  if (p.total) {
+    const pct = Math.min(100, Math.floor((p.done / p.total) * 100));
+    bar.classList.remove('indet');
+    bar.style.width = pct + '%';
+    text.textContent = `${p.label}  ${pct}%  (${p.done}/${p.total})`;
+  } else {
+    bar.classList.add('indet');
+    text.textContent = p.label;
+  }
+}
+api.on('progress', showProgress);
+api.on('closed', (c) => { addLog(`ゲーム終了 (code ${c})`); busy = false; refreshPlay(); showProgress(null); });
 
 $('home').onclick = () => { view = 'home'; render(); };
 $('reload').onclick = reload;

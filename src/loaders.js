@@ -38,12 +38,21 @@ async function installProfileLoader(name, base, { minecraft, loaderVersion }, ro
   return profile.id;
 }
 
-function runInstaller(java, jar, root, log) {
+function runInstaller(java, jar, root, log, onProgress) {
   return new Promise((resolve, reject) => {
     const lp = path.join(root, 'launcher_profiles.json');
     if (!fs.existsSync(lp)) fs.writeFileSync(lp, JSON.stringify({ profiles: {}, selectedProfile: '' }));
     const p = spawn(java, ['-jar', jar, '--installClient', root], { cwd: root, windowsHide: true });
-    const pipe = (d) => String(d).split(/\r?\n/).filter(Boolean).forEach((l) => log(`[installer] ${l}`));
+    // インストーラーはライブラリを数百件ダウンロードして大量の行を出すので、件数にまとめて表示する
+    let downloads = 0;
+    const pipe = (d) => String(d).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).forEach((l) => {
+      if (/^(Downloading|Downloaded|Considering|Checking|Extracting)\b/i.test(l)) {
+        onProgress?.(`MODローダーを導入中(${downloads + 1}件目のファイルを取得)`);
+        if (++downloads % 25 === 1) log(`MODローダーのファイルを取得中...(${downloads}件目)`);
+        return;
+      }
+      log(`[installer] ${l}`);
+    });
     p.stdout.on('data', pipe);
     p.stderr.on('data', pipe);
     p.on('error', (e) => reject(new Error(`Java を起動できません: ${e.message}`)));
@@ -55,7 +64,7 @@ function runInstaller(java, jar, root, log) {
 const idMapPath = (root) => path.join(root, 'cache', 'loader-ids.json');
 function readIdMap(root) { try { return JSON.parse(fs.readFileSync(idMapPath(root), 'utf8')); } catch { return {}; } }
 
-async function installWithInstaller({ ids, urls, match }, root, java, log) {
+async function installWithInstaller({ ids, urls, match }, root, java, log, onProgress) {
   const known = readIdMap(root);
   const cached = urls.map((u) => known[u]).find((id) => id && hasVersion(root, id));
   if (cached) return cached;
@@ -78,7 +87,8 @@ async function installWithInstaller({ ids, urls, match }, root, java, log) {
 
   const before = new Set(listVersions(root));
   log('MODローダーをインストール中(数分かかることがあります)');
-  await runInstaller(java, jar, root, log);
+  onProgress?.('MODローダーを導入中');
+  await runInstaller(java, jar, root, log, onProgress);
 
   const id = ids.find((x) => hasVersion(root, x)) || listVersions(root).find((d) => !before.has(d) && match(d) && hasVersion(root, d));
   if (!id) throw new Error('インストール後のバージョンが見つかりません');
@@ -87,7 +97,7 @@ async function installWithInstaller({ ids, urls, match }, root, java, log) {
   return id;
 }
 
-async function installForge({ minecraft, loaderVersion }, root, java, log) {
+async function installForge({ minecraft, loaderVersion }, root, java, log, onProgress) {
   let ver = loaderVersion;
   if (!ver) {
     const promos = (await getJson('https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json')).promos;
@@ -101,10 +111,10 @@ async function installForge({ minecraft, loaderVersion }, root, java, log) {
     ids: [`${minecraft}-forge-${ver}`],
     urls: fulls.map((f) => `https://maven.minecraftforge.net/net/minecraftforge/forge/${f}/forge-${f}-installer.jar`),
     match: (d) => /forge/i.test(d),
-  }, root, java, log);
+  }, root, java, log, onProgress);
 }
 
-async function installNeoForge({ minecraft, loaderVersion }, root, java, log) {
+async function installNeoForge({ minecraft, loaderVersion }, root, java, log, onProgress) {
   let ver = loaderVersion;
   if (!ver) {
     const m = /^1\.(\d+)(?:\.(\d+))?/.exec(minecraft);
@@ -120,17 +130,17 @@ async function installNeoForge({ minecraft, loaderVersion }, root, java, log) {
     ids: [`neoforge-${ver}`],
     urls: [`https://maven.neoforged.net/releases/net/neoforged/neoforge/${ver}/neoforge-${ver}-installer.jar`],
     match: (d) => /neoforge/i.test(d),
-  }, root, java, log);
+  }, root, java, log, onProgress);
 }
 
 // 戻り値: MCLC の version.custom に渡す ID(vanilla は undefined)
-async function ensureLoader(pack, root, java, log) {
+async function ensureLoader(pack, root, java, log, onProgress) {
   switch (pack.loader) {
     case 'vanilla': return undefined;
     case 'fabric': return installProfileLoader('Fabric', 'https://meta.fabricmc.net/v2', pack, root, log);
     case 'quilt': return installProfileLoader('Quilt', 'https://meta.quiltmc.org/v3', pack, root, log);
-    case 'forge': return installForge(pack, root, java, log);
-    case 'neoforge': return installNeoForge(pack, root, java, log);
+    case 'forge': return installForge(pack, root, java, log, onProgress);
+    case 'neoforge': return installNeoForge(pack, root, java, log, onProgress);
     default: throw new Error(`未対応のローダー: ${pack.loader}`);
   }
 }

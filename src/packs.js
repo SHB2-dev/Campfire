@@ -243,7 +243,7 @@ function readState(gameDir) {
 }
 
 // 前回との差分だけ更新する。戻り値: { downloaded, removed, packChanged }
-async function syncFiles(resolved, gameDir, log) {
+async function syncFiles(resolved, gameDir, log, onProgress) {
   const state = readState(gameDir);
   const newPaths = new Set(resolved.extracted || []);
   const todo = [];
@@ -264,7 +264,9 @@ async function syncFiles(resolved, gameDir, log) {
       if (t.f.sha1 && sha1Of(buf) !== t.f.sha1) throw new Error(`ハッシュ不一致: ${t.f.path}`);
       fs.mkdirSync(path.dirname(t.dest), { recursive: true });
       fs.writeFileSync(t.dest, buf);
-      log(`ダウンロード ${++done}/${todo.length}: ${t.f.path}`);
+      onProgress?.('MODをダウンロード中', done + 1, todo.length);
+      // 大きなパックでログが埋まらないよう、多いときは10件ごとに表示する
+      if (++done === todo.length || todo.length <= 10 || done % 10 === 0) log(`MODをダウンロード中 ${done}/${todo.length}`);
     }
   };
   await Promise.all(Array.from({ length: Math.min(4, todo.length) }, worker));

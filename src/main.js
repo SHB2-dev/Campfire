@@ -10,6 +10,7 @@ const { resolveEntry, syncFiles } = require('./packs');
 const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
 const { setupUpdater, openReleases } = require('./updater');
+const { ping: mcping, parseAddress } = require('./mcping');
 
 // バックエンドURL: 環境変数 > src/config.json(ビルド時に配布用URLへ書き換える)
 const BACKEND_URL = (process.env.BACKEND_URL || require('./config.json').backendUrl).replace(/\/$/, '');
@@ -187,6 +188,18 @@ ipcMain.handle('login-offline', (_e, name) => {
 });
 
 ipcMain.handle('open-folder', () => shell.openPath(dataDir()));
+// サーバーの稼働状況(一覧に表示)。同じアドレスは20秒キャッシュして、無駄に接続しない
+const pingCache = new Map();
+async function pingCached(address) {
+  const hit = pingCache.get(address);
+  if (hit && Date.now() - hit.at < 20_000) return hit.result;
+  let result;
+  try { result = await mcping(address, 3000); } catch { result = { online: false }; }
+  pingCache.set(address, { at: Date.now(), result });
+  return result;
+}
+ipcMain.handle('ping', (_e, address) => (parseAddress(address) ? pingCached(String(address)) : { online: false }));
+
 ipcMain.handle('open-releases', () => openReleases());
 ipcMain.handle('app-version', () => app.getVersion());
 
@@ -262,9 +275,19 @@ ipcMain.handle('play', async (_e, id) => {
     overrides: { gameDirectory: gameDir },
   };
   if (entry.address && entry.autoConnect) {
-    const [host, port] = entry.address.split(':');
-    opts.quickPlay = { type: 'multiplayer', identifier: entry.address };
-    opts.server = { host, port: port || '25565' };
+    // メインのアドレスが落ちていれば、繋がる予備アドレスに切り替える
+    let address = entry.address;
+    const alts = (entry.altAddresses || []).filter((a) => parseAddress(a));
+    if (alts.length && !(await pingCached(address)).online) {
+      for (const alt of alts) {
+        if ((await pingCached(alt)).online) { address = alt; log(`メインのサーバーに接続できないため、予備アドレス ${alt} に接続します`); break; }
+      }
+    }
+    if (parseAddress(address)) {
+      const [host, port] = address.split(':');
+      opts.quickPlay = { type: 'multiplayer', identifier: address };
+      opts.server = { host, port: port || '25565' };
+    }
   }
   log('起動中...');
   const proc = await launcher.launch(opts);

@@ -71,6 +71,7 @@ function renderHome(root) {
     const info = el('div', 'info');
     info.append(el('b', null, i.entry.name), el('small', null, `${i.guild.name} · ${i.gone ? '削除されたか、参加していません' : describe(i.entry)}`));
     if (i.entry.description && !i.gone) info.append(el('small', 'muted', i.entry.description));
+    if (i.entry.address && !i.gone) info.append(statusLine(i.entry.address));
     const rm = el('button', 'ghost sm', '外す');
     rm.onclick = guard(async (e) => { e.stopPropagation(); myList = await api.removeServer(i.id); if (selectedId === i.id) selectedId = null; render(); });
     card.append(info, rm);
@@ -87,6 +88,7 @@ function renderGuild(root, g) {
     const info = el('div', 'info');
     info.append(el('b', null, s.name), el('small', null, describe(s)));
     if (s.description) info.append(el('small', 'muted', s.description));
+    if (s.address) info.append(statusLine(s.address));
     card.append(info, el('span', 'badge', added ? '追加済み ✓' : '＋ 追加'));
     card.onclick = guard(async () => {
       myList = await api.addServer(s.id);
@@ -98,7 +100,27 @@ function renderGuild(root, g) {
   }
 }
 
+// サーバーの稼働状況(オンライン/人数/応答時間)。描画後にまとめて問い合わせる
+let statusTargets = [];
+function statusLine(address) {
+  const st = el('small', 'st', '● 確認中…');
+  statusTargets.push({ st, address });
+  return st;
+}
+async function updateStatuses(targets) {
+  const queue = [...targets];
+  const worker = async () => {
+    for (let t = queue.shift(); t; t = queue.shift()) {
+      const r = await api.ping(t.address).catch(() => ({ online: false }));
+      t.st.className = r.online ? 'st on' : 'st off';
+      t.st.textContent = r.online ? `● オンライン ${r.players.online}/${r.players.max}人 · ${r.latencyMs}ms` : '● オフライン';
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker));
+}
+
 function render() {
+  statusTargets = [];
   renderRail();
   const root = $('view');
   root.replaceChildren();
@@ -106,6 +128,7 @@ function render() {
   if (view !== 'home' && !g) view = 'home';
   $('title').textContent = view === 'home' ? 'マイリスト' : g.guild.name;
   if (view === 'home') renderHome(root); else renderGuild(root, g);
+  updateStatuses(statusTargets);
   refreshPlay();
 }
 

@@ -53,6 +53,9 @@ function showForm(s) {
   form.name.value = s?.name || '';
   form.description.value = s?.description || '';
   form.address.value = s?.address || '';
+  form.altAddresses.value = (s?.altAddresses || []).join('\n');
+  $('#testResult').textContent = '';
+  loadHistory(s);
   form.autoConnect.checked = s ? s.autoConnect : true;
   form.type.value = s?.type || 'vanilla';
   form.loader.value = s?.loader || 'vanilla';
@@ -67,6 +70,44 @@ function showForm(s) {
   form.scrollIntoView({ behavior: 'smooth' });
 }
 function hideForm() { form.hidden = true; $('#new').hidden = false; }
+
+// 接続先アドレスの変更履歴(編集時のみ表示)
+async function loadHistory(s) {
+  const box = $('#historyBox');
+  box.hidden = true;
+  if (!s) return;
+  const forGuild = gid;
+  const { history } = await api('GET', `/guilds/${forGuild}/servers/${s.id}/history`).catch(() => ({ history: [] }));
+  if (editing !== s || forGuild !== gid || !history.length) return;
+  const list = $('#history');
+  list.replaceChildren();
+  for (const h of history) {
+    const row = el('div', 'h');
+    row.append(el('b', null, new Date(h.at).toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })), el('span', null, `  ${h.by}  →  ${[h.address, ...h.altAddresses].join(' , ') || '(なし)'}`));
+    list.append(row);
+  }
+  box.hidden = false;
+}
+
+// 接続テスト: メインと予備アドレスを順に確認して結果を表示
+$('#testAddr').onclick = async () => {
+  const out = $('#testResult');
+  const list = [form.address.value, ...form.altAddresses.value.split(/[\r\n,]+/)].map((x) => x.trim()).filter(Boolean);
+  if (!list.length) { out.textContent = 'アドレスを入力してください'; out.className = 'bad'; return; }
+  out.className = 'muted';
+  out.replaceChildren();
+  for (const addr of list.slice(0, 4)) {
+    const line = el('div', 'muted', `${addr} …確認中`);
+    out.append(line);
+    try {
+      const r = await api('POST', '/ping', { address: addr });
+      if (r.online) {
+        line.className = 'good';
+        line.textContent = `● ${addr}  オンライン ${r.players.online}/${r.players.max}人 · ${r.latencyMs}ms · ${r.version}${r.motd ? ' · ' + r.motd : ''}`;
+      } else { line.className = 'bad'; line.textContent = `● ${addr}  オフライン (${r.error})`; }
+    } catch (err) { line.className = 'bad'; line.textContent = `● ${addr}  ${err.message}`; }
+  }
+};
 
 const describe = (s) =>
   ({
@@ -183,7 +224,7 @@ $('#cancel').onclick = hideForm;
 form.onsubmit = async (e) => {
   e.preventDefault();
   const body = {
-    name: form.name.value, description: form.description.value, address: form.address.value,
+    name: form.name.value, description: form.description.value, address: form.address.value, altAddresses: form.altAddresses.value,
     autoConnect: form.autoConnect.checked, type: form.type.value, minecraft: form.minecraft.value,
     loader: form.loader.value, loaderVersion: form.loaderVersion.value, source: form.source.value,
   };

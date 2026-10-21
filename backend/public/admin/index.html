@@ -57,6 +57,16 @@
         <label>サーバー名(ランチャーに表示 例: s1)<input name="name" maxlength="30" required></label>
         <label>説明(任意)<input name="description" maxlength="300"></label>
         <label>接続先アドレス(任意 例: play.example.com:25565)<input name="address" maxlength="100"></label>
+        <label>予備アドレス(任意・1行に1つ・最大3つ)<textarea name="altAddresses" rows="2" maxlength="320" placeholder="backup.example.com"></textarea></label>
+        <p class="muted small">メインのアドレスに繋がらないとき、ランチャーが予備アドレスへ自動で切り替えます。</p>
+        <div class="inline">
+          <button type="button" id="testAddr" class="ghost">接続テスト</button>
+          <span id="testResult" class="muted"></span>
+        </div>
+        <div id="historyBox" hidden>
+          <h3>アドレスの変更履歴</h3>
+          <div id="history"></div>
+        </div>
         <label class="row"><input type="checkbox" name="autoConnect" checked> 起動後に自動で接続する</label>
 
         <label>遊び方

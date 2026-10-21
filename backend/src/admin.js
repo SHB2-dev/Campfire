@@ -7,6 +7,8 @@ const dc = require('./discord');
 const { validate, serialize, mojangVersions, LOADERS } = require('./servers');
 const { wrap } = require('./api');
 const cf = require('./curseforge');
+const { validateAddress } = require('./netguard');
+const { ping } = require('./mcping');
 
 const MAX_PER_GUILD = 25;
 const MAX_EDITORS = 20;
@@ -184,14 +186,55 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
     if (error) return res.status(400).json({ error });
     if (db.countServers(req.params.gid) >= MAX_PER_GUILD) return res.status(400).json({ error: `1サーバーにつき${MAX_PER_GUILD}個までです` });
     const id = db.addServer({ ...value, guildId: req.params.gid }, req.session.user_id);
+    if (value.address) logAddress(req, id, value);
     res.json({ id });
+  }));
+
+  // 接続先アドレスの変更履歴(誰がいつ変えたか)
+  const logAddress = (req, serverId, v) =>
+    db.logAddress({
+      serverId, guildId: req.params.gid, address: v.address, altAddresses: v.altAddresses,
+      userId: req.session.user_id, userName: req.session.username,
+    });
+
+  r.get('/api/guilds/:gid/servers/:id/history', wrap(async (req, res) => {
+    await guildOf(req);
+    res.json({
+      history: db.addressHistory(Number(req.params.id), req.params.gid).map((h) => ({
+        address: h.address, altAddresses: h.alt_addresses ? h.alt_addresses.split('\n') : [], by: h.changed_by_name, at: h.changed_at,
+      })),
+    });
+  }));
+
+  // 接続テスト。バックエンドが外部へ接続するので、利用者ごとに1分10回まで(SSRF対策は mcping 側で実施)
+  const pingUsage = new Map();
+  r.post('/api/ping', wrap(async (req, res) => {
+    if (!(await manageable(req)).out.length) throw fail(403, '権限がありません');
+    const now = Date.now();
+    const rec = pingUsage.get(req.session.user_id) || { n: 0, reset: now + 60_000 };
+    if (now > rec.reset) { rec.n = 0; rec.reset = now + 60_000; }
+    if (++rec.n > 10) throw fail(429, '接続テストは1分に10回までです。少し待ってください');
+    pingUsage.set(req.session.user_id, rec);
+
+    const check = validateAddress(String(req.body?.address || ''));
+    if (check.error) return res.status(400).json({ error: check.error });
+    try {
+      res.json(await ping(check.value));
+    } catch (e) {
+      res.json({ online: false, error: e.message });
+    }
   }));
 
   r.put('/api/guilds/:gid/servers/:id', wrap(async (req, res) => {
     await guildOf(req);
     const { value, error } = await validate(req.body, { curseforge: cf.enabled() });
     if (error) return res.status(400).json({ error });
+    const before = db.getServer(Number(req.params.id));
     const n = db.updateServer(Number(req.params.id), { ...value, guildId: req.params.gid });
+    if (n && before && before.guild_id === req.params.gid) {
+      const oldAlt = before.alt_addresses ? before.alt_addresses.split('\n') : [];
+      if (before.address !== value.address || oldAlt.join('\n') !== value.altAddresses.join('\n')) logAddress(req, before.id, value);
+    }
     res.status(n ? 200 : 404).json({ ok: !!n });
   }));
 

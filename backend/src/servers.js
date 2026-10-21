@@ -1,4 +1,5 @@
 // サーバー登録の検証・整形
+const { validateAddress } = require('./netguard');
 const LOADERS = ['vanilla', 'fabric', 'quilt', 'forge', 'neoforge'];
 const TYPES = ['vanilla', 'modrinth', 'curseforge', 'mrpack', 'zip', 'manifest'];
 
@@ -25,13 +26,23 @@ async function validate(body, { curseforge = false } = {}) {
   const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
   const name = str(b.name, 30);
   if (!name) return { error: 'サーバー名を入力してください' };
-  const address = str(b.address, 100);
-  if (address && !/^[\w.-]+(:\d{1,5})?$/.test(address)) return { error: '接続先は host または host:port の形式で入力してください' };
+  // 接続先: メイン1つ + 予備(最大3つ)。他の人から届かないアドレス(ローカル/プライベートIP)は拒否
+  const rawList = [str(b.address, 100), ...(Array.isArray(b.altAddresses) ? b.altAddresses : String(b.altAddresses || '').split(/[\r\n,]+/)).map((x) => str(x, 100))].filter(Boolean);
+  const addrs = [];
+  for (const raw of rawList) {
+    const r = validateAddress(raw);
+    if (r.error) return { error: r.error };
+    if (!addrs.includes(r.value)) addrs.push(r.value);
+  }
+  if (!str(b.address, 100) && addrs.length) return { error: '予備アドレスだけでなく、メインの接続先アドレスも入力してください' };
+  if (addrs.length > 4) return { error: '予備アドレスは3つまでです' };
+  const address = addrs[0] || '';
+  const altAddresses = addrs.slice(1);
   const type = b.type;
   if (!TYPES.includes(type)) return { error: '種類が不正です' };
 
   const v = {
-    name, description: str(b.description, 300), address, autoConnect: b.autoConnect !== false,
+    name, description: str(b.description, 300), address, altAddresses, autoConnect: b.autoConnect !== false,
     type, source: '', minecraft: '', loader: 'vanilla', loaderVersion: '',
   };
 
@@ -71,7 +82,7 @@ async function validate(body, { curseforge = false } = {}) {
 
 const serialize = (r) => ({
   id: r.id, guildId: r.guild_id, name: r.name, description: r.description,
-  address: r.address, autoConnect: !!r.auto_connect,
+  address: r.address, altAddresses: r.alt_addresses ? r.alt_addresses.split('\n') : [], autoConnect: !!r.auto_connect,
   type: r.source_type, source: r.source, minecraft: r.minecraft,
   loader: r.loader, loaderVersion: r.loader_version, updatedAt: r.updated_at,
 });

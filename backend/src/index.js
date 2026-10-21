@@ -26,7 +26,15 @@ const need = (k) => {
 
 const clientId = need('DISCORD_CLIENT_ID');
 const clientSecret = need('DISCORD_CLIENT_SECRET');
-const publicUrl = need('PUBLIC_URL').replace(/\/$/, '');
+// ホスト名は大文字小文字を区別しない。Discord のリダイレクトURIは文字列で一致を見るため、小文字に正規化する
+const publicUrl = (() => {
+  try {
+    const u = new URL(need('PUBLIC_URL'));
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/$/, '')}`;
+  } catch {
+    console.error('PUBLIC_URL が正しいURLではありません'); process.exit(1);
+  }
+})();
 // ランチャーのループバックのリダイレクトURI(Discord開発者ポータルにも登録すること)
 const allowedRedirects = (process.env.ALLOWED_REDIRECTS || 'http://127.0.0.1:53682/callback').split(',');
 

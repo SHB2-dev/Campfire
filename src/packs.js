@@ -97,6 +97,97 @@ function stripTopMapper(zip) {
   return (n) => (strip ? n.split('/').slice(1).join('/') : n);
 }
 
+// MultiMC / Prism 形式の zip は、ゲームの中身が .minecraft/ か minecraft/ の下にある
+function zipMapper(zip) {
+  if (zip.getEntry('mmc-pack.json')) return (n) => /^\.?minecraft\/(.+)$/.exec(n)?.[1] || null;
+  return stripTopMapper(zip);
+}
+
+const readJson = (zip, name) => {
+  const e = zip.getEntry(name);
+  if (!e) return null;
+  try { return JSON.parse(e.getData().toString('utf8')); } catch { return null; }
+};
+const versionTokens = (s) => String(s || '').match(/\d+\.\d+(?:\.\d+)?/g) || [];
+
+// zip の中身から Minecraft のバージョンとローダーを判定する。判定できなければ null
+//  1) パック形式のメタデータ(Modrinth / CurseForge / Prism・MultiMC / CurseForge アプリ)
+//  2) なければ MOD の jar の中身(fabric.mod.json, mods.toml など)から推測
+function detectPackMeta(zip) {
+  const mr = readJson(zip, 'modrinth.index.json');
+  if (mr?.dependencies?.minecraft) {
+    const k = Object.keys(MRPACK_DEPS).find((x) => mr.dependencies[x]);
+    return { minecraft: mr.dependencies.minecraft, loader: k ? MRPACK_DEPS[k] : 'vanilla', loaderVersion: k ? mr.dependencies[k] : '', from: 'modrinth.index.json' };
+  }
+  const cf = readJson(zip, 'manifest.json');
+  if (cf?.minecraft?.version) {
+    const ml = (cf.minecraft.modLoaders || []).find((x) => x.primary) || cf.minecraft.modLoaders?.[0];
+    const i = ml?.id ? ml.id.indexOf('-') : -1;
+    return { minecraft: cf.minecraft.version, loader: i > 0 ? ml.id.slice(0, i) : 'vanilla', loaderVersion: i > 0 ? ml.id.slice(i + 1) : '', from: 'manifest.json' };
+  }
+  const mmc = readJson(zip, 'mmc-pack.json');
+  if (mmc?.components) {
+    const ver = (uid) => mmc.components.find((c) => c.uid === uid)?.version || '';
+    const mc = ver('net.minecraft');
+    if (mc) {
+      const loaders = [['net.fabricmc.fabric-loader', 'fabric'], ['org.quiltmc.quilt-loader', 'quilt'], ['net.neoforged', 'neoforge'], ['net.minecraftforge', 'forge']];
+      const hit = loaders.find(([uid]) => ver(uid));
+      return { minecraft: mc, loader: hit ? hit[1] : 'vanilla', loaderVersion: hit ? ver(hit[0]) : '', from: 'mmc-pack.json' };
+    }
+  }
+  const mci = readJson(zip, 'minecraftinstance.json');
+  if (mci?.baseModLoader?.minecraftVersion || mci?.gameVersion) {
+    const name = mci.baseModLoader?.name || '';
+    const i = name.indexOf('-');
+    return { minecraft: mci.baseModLoader?.minecraftVersion || mci.gameVersion, loader: i > 0 ? name.slice(0, i) : 'vanilla', loaderVersion: i > 0 ? name.slice(i + 1) : '', from: 'minecraftinstance.json' };
+  }
+  return detectFromJars(zip);
+}
+
+const MAX_JARS_INSPECTED = 40;
+function detectFromJars(zip) {
+  const jars = zip.getEntries().filter((e) => !e.isDirectory && /(^|\/)mods\/[^/]+\.jar$/i.test(e.entryName.replace(/\\/g, '/'))).slice(0, MAX_JARS_INSPECTED);
+  if (!jars.length) return null;
+  const perJar = [];
+  for (const e of jars) {
+    let inner;
+    try { inner = new AdmZip(e.getData()); } catch { continue; }
+    const markers = new Set();
+    const tokens = [];
+    const fabric = readJson(inner, 'fabric.mod.json');
+    if (fabric) { markers.add('fabric'); const d = fabric.depends?.minecraft; tokens.push(...versionTokens(Array.isArray(d) ? d.join(' ') : d)); }
+    const quilt = readJson(inner, 'quilt.mod.json');
+    if (quilt) {
+      markers.add('quilt');
+      const dep = (quilt.quilt_loader?.depends || []).find((x) => x?.id === 'minecraft');
+      tokens.push(...versionTokens(typeof dep?.versions === 'string' ? dep.versions : JSON.stringify(dep?.versions || '')));
+    }
+    for (const [file, loader] of [['META-INF/neoforge.mods.toml', 'neoforge'], ['META-INF/mods.toml', 'forge']]) {
+      const t = inner.getEntry(file);
+      if (!t) continue;
+      markers.add(loader);
+      const m = /modId\s*=\s*"minecraft"[\s\S]{0,300}?versionRange\s*=\s*"([^"]+)"/.exec(t.getData().toString('utf8'));
+      if (m) tokens.push(...versionTokens(m[1]));
+    }
+    if (markers.size) perJar.push({ markers, tokens });
+  }
+  if (!perJar.length) return null;
+
+  // 複数ローダー対応の jar は判断材料にならないので、1種類のローダーだけの jar を数える
+  const count = {};
+  for (const j of perJar.filter((x) => x.markers.size === 1)) { const l = [...j.markers][0]; count[l] = (count[l] || 0) + 1; }
+  if (!Object.keys(count).length) for (const j of perJar) for (const l of j.markers) count[l] = (count[l] || 0) + 1;
+  const loader = Object.entries(count).sort((a, b) => b[1] - a[1] || (a[0] === 'fabric' ? -1 : 1))[0][0];
+
+  // Minecraft バージョン: そのローダーの MOD が要求するバージョンのうち最多のもの(x.y.z を優先)
+  const freq = {};
+  for (const j of perJar.filter((x) => x.markers.has(loader))) for (const t of new Set(j.tokens)) freq[t] = (freq[t] || 0) + 1;
+  const pick = (re) => Object.entries(freq).filter(([t]) => re.test(t)).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const minecraft = pick(/^\d+\.\d+\.\d+$/) || pick(/^\d+\.\d+$/);
+  if (!minecraft) return null;
+  return { minecraft, loader, loaderVersion: '', from: 'MODの中身' };
+}
+
 // URL やパスに埋め込まれる値は、英数字と . _ + - のみ許可する(../ などの混入を防ぐ)
 const SAFE_TOKEN = /^[\w.+-]{1,60}$/;
 function assertSafeVersions(r) {
@@ -139,9 +230,23 @@ async function resolveRaw(entry, cacheDir, log, ctx) {
     case 'zip': {
       const buf = await cachedDownload(entry.source, cacheDir, false);
       const zip = openZip(buf);
+      // 管理者がバージョン/ローダーを指定していればそれを優先。空欄・自動なら zip の中身から判定する
+      const auto = !entry.minecraft || !entry.loader || entry.loader === 'auto';
+      const meta = auto ? detectPackMeta(zip) : null;
+      const minecraft = entry.minecraft || meta?.minecraft;
+      if (!minecraft) {
+        throw new Error('zip の中身から Minecraft のバージョンを判定できませんでした。管理者に、管理サイトでバージョンの指定を依頼してください');
+      }
+      const loader = entry.loader && entry.loader !== 'auto' ? entry.loader : (meta?.loader || 'vanilla');
+      const hasMods = zip.getEntries().some((e) => /(^|\/)mods\/[^/]+\.jar$/i.test(e.entryName));
+      if (loader === 'vanilla' && !meta?.loader && hasMods && entry.loader === 'auto') {
+        throw new Error('zip の MOD から MOD ローダー(Fabric / Forge など)を判定できませんでした。管理者に、ローダーの指定を依頼してください');
+      }
+      if (meta) log(`zip の${meta.from}から判定: Minecraft ${minecraft} / ${loader}`);
       return {
-        minecraft: entry.minecraft, loader: entry.loader || 'vanilla', loaderVersion: entry.loaderVersion || '',
-        files: [], strictMods: false, packHash: sha1Of(buf), label: 'zip', ...makeExtraction(zip, stripTopMapper(zip)),
+        // ローダーのバージョンは、管理者の指定を優先。ローダーを自動判定したときだけ、判定結果のバージョンを使う
+        minecraft, loader, loaderVersion: entry.loaderVersion || (!entry.loader || entry.loader === 'auto' ? meta?.loaderVersion || '' : ''),
+        files: [], strictMods: false, packHash: sha1Of(buf), label: 'zip', ...makeExtraction(zip, zipMapper(zip)),
       };
     }
     case 'mrpack':

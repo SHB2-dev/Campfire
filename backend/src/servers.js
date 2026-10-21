@@ -48,10 +48,14 @@ async function validate(body, { curseforge = false } = {}) {
 
   if (type === 'vanilla' || type === 'zip') {
     const mc = str(b.minecraft, 40);
-    const list = await mojangVersions();
-    if (!list.some((x) => x.id === mc)) return { error: 'Minecraft のバージョンが存在しません' };
-    const loader = b.loader || 'vanilla';
-    if (!LOADERS.includes(loader)) return { error: 'ローダーが不正です' };
+    // zip だけは、バージョン/ローダーを空欄(自動)にでき、ランチャーが zip の中身から判定する
+    const auto = type === 'zip';
+    if (!(auto && !mc)) {
+      const list = await mojangVersions();
+      if (!list.some((x) => x.id === mc)) return { error: 'Minecraft のバージョンが存在しません' };
+    }
+    const loader = b.loader || (auto ? 'auto' : 'vanilla');
+    if (!LOADERS.includes(loader) && !(auto && loader === 'auto')) return { error: 'ローダーが不正です' };
     const lv = str(b.loaderVersion, 50);
     if (lv && !/^[\w.+-]+$/.test(lv)) return { error: 'ローダーのバージョンが不正です' };
     Object.assign(v, { minecraft: mc, loader, loaderVersion: lv });

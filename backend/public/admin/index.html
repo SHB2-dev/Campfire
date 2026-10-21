@@ -8,13 +8,21 @@
 <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-<header><b>Packhearth 管理</b><span id="me"></span><button id="logout" class="ghost" hidden>ログアウト</button></header>
+<header>
+  <a class="brand" href="/">Packhearth</a><span class="muted">管理</span>
+  <a class="navlink" href="/">← ホームページ</a>
+  <span id="me"></span>
+  <button id="logout" class="ghost" hidden>ログアウト</button>
+</header>
 
 <div id="login" class="box" hidden>
   <h1>Discordサーバーの管理者向け</h1>
   <p>自分のDiscordサーバーで遊べるMODパックやバージョンを登録すると、サーバーのメンバーのランチャーにワンクリックで追加できるようになります。</p>
   <p id="inviteHint" class="ok" hidden>編集者への招待を受け取りました。Discordでログインすると参加できます。</p>
-  <a class="btn" href="/admin/login">Discordでログイン</a>
+  <p>
+    <a class="btn" href="/admin/login">Discordでログイン</a>
+    <a class="btn ghost" href="/">ホームページに戻る</a>
+  </p>
 </div>
 
 <div id="app" class="wrap" hidden>
@@ -85,6 +93,7 @@
           <label class="row"><input type="checkbox" id="showAll"> スナップショットや古いバージョンも表示</label>
           <label>MODローダー
             <select name="loader">
+              <option value="auto" data-auto disabled hidden>自動判定(おすすめ)</option>
               <option value="vanilla">なし(バニラ)</option>
               <option value="fabric">Fabric</option>
               <option value="quilt">Quilt</option>

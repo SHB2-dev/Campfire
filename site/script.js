@@ -18,10 +18,13 @@ fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
   .then((rel) => {
     document.getElementById('ver').textContent = `最新バージョン: ${rel.tag_name}`;
     for (const a of document.querySelectorAll('.dl')) {
-      const asset = rel.assets.find((x) => exts[a.dataset.os].test(x.name));
+      // Windows はインストーラー(Setup)を優先。ポータブル版より自動更新が使える
+      const matches = rel.assets.filter((x) => exts[a.dataset.os].test(x.name));
+      const asset = matches.find((x) => /Setup/i.test(x.name)) || matches[0];
       if (asset) a.href = asset.browser_download_url;
     }
-    const main = rel.assets.find((x) => os && exts[os].test(x.name));
+    const mainMatches = rel.assets.filter((x) => os && exts[os].test(x.name));
+    const main = mainMatches.find((x) => /Setup/i.test(x.name)) || mainMatches[0];
     if (main) document.getElementById('dl-main').href = main.browser_download_url;
   })
   .catch(() => {

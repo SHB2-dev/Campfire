@@ -63,7 +63,11 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Packhearth-Setup-${version}-win-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Packhearth-Portable-${version}-win-${arch}.${ext}"
     },
     "mac": {
       "category": "public.app-category.games",

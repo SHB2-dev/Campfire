@@ -2,7 +2,11 @@
   "name": "packhearth-launcher",
   "version": "0.1.0",
   "description": "Minecraft Java コミュニティサーバー向けランチャー",
-  "author": "SHB2-dev",
+  "author": {
+    "name": "SHB2-dev",
+    "email": "SHB2-dev@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/SHB2-dev/Packhearth",
   "license": "MIT",
   "main": "src/main.js",
   "scripts": {

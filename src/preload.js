@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   play: call('play'),
   openFolder: call('open-folder'),
   openReleases: call('open-releases'),
+  setMemory: call('set-memory'),
+  uploadLog: call('upload-log'),
   installUpdate: call('install-update'),
   ping: call('ping'),
   appVersion: call('app-version'),

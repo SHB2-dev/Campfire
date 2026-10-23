@@ -56,7 +56,7 @@
     <h2>3ステップで遊べます</h2>
     <ol class="steps">
       <li><span>1</span><h3>ログイン</h3><p>DiscordとMicrosoftアカウントでログイン。パスワードをランチャーが覚えることはありません。</p></li>
-      <li><span>2</span><h3>サーバーを選ぶ</h3><p>左に所属しているDiscordサーバーのアイコンが並びます。押して、遊びたいサーバー名(s1 など)をクリックするとマイリストに追加。</p></li>
+      <li><span>2</span><h3>サーバーを選ぶ</h3><p>所属しているDiscordサーバーのアイコンが、上にタイル状に並びます。押して、遊びたいサーバー名(s1 など)をクリックするとマイリストに追加。</p></li>
       <li><span>3</span><h3>プレイ</h3><p>「プレイ」を押すと、必要なMOD・Java・ローダーを自動で用意して起動。指定サーバーへ自動で接続できます。</p></li>
     </ol>
   </section>
@@ -66,9 +66,15 @@
     <div class="grid">
       <article><h3>🔄 起動時に自動更新</h3><p>管理者がパックを更新すると、次の起動で差分だけ自動ダウンロード。古いMODの入れ替えも自動です。</p></article>
       <article><h3>☕ Javaも自動</h3><p>バージョンごとに違うJavaを、公式のものを自動で用意。自分でインストールする必要はありません。</p></article>
-      <article><h3>🧩 主要ローダーに対応</h3><p>Fabric / Quilt / Forge / NeoForge、そしてバニラ。Modrinth・CurseForge・FTB(Feed The Beast)のモッドパックもそのまま使えます。</p></article>
+      <article><h3>📌 みんな同じ版で遊べる</h3><p>管理者がパックのバージョンを固定すると、全員が同じ版に揃います。新しい版が出ても、管理者が切り替えるまで変わりません。</p></article>
+      <article><h3>🧩 主要ローダーに対応</h3><p>Fabric / Quilt / Forge / NeoForge、そしてバニラに対応しています。</p></article>
+      <article><h3>📦 いろいろなパックに対応</h3><p>Modrinth・CurseForge・FTB(Feed The Beast)のモッドパックや、zip / .mrpack も、そのまま使えます。</p></article>
       <article><h3>🕰 あらゆるバージョン</h3><p>最新版からスナップショット、古いバージョンまで、Minecraftにあるバージョンを管理者が指定できます。</p></article>
       <article><h3>🖥 3つのOSに対応</h3><p>Windows(exe)、macOS(dmg)、Linux(AppImage / deb)で動作します。</p></article>
+      <article><h3>🟢 サーバーの状況が見える</h3><p>マイリストに、各サーバーのオンライン状況・人数・応答時間を表示。メインのサーバーが落ちているときは、管理者が登録した予備のアドレスへ自動で接続します。</p></article>
+      <article><h3>💾 メモリはサーバーごとに</h3><p>重いMODパックは多め、軽いサーバーは少なめに。割り当てるメモリを、サーバーごとに選べます。</p></article>
+      <article><h3>🧾 ログをワンクリックで共有</h3><p>不具合のときは、ゲームのログやクラッシュレポートをボタン1つで mclo.gs にアップロードして、共有用のURLを作れます。アクセストークンとユーザー名は伏せて送ります。</p></article>
+      <article><h3>🔔 アップデートも通知でお知らせ</h3><p>ランチャーの新しいバージョンは、OSの通知バーで案内。画面のボタンを押すだけで更新できます(インストーラー版 / AppImage)。</p></article>
       <article><h3>🔒 安全面にも配慮</h3><p>通信はHTTPSのみ。ファイルはハッシュで検証し、初回起動時には配布元を確認するダイアログを表示します。</p></article>
     </div>
   </section>
@@ -80,16 +86,20 @@
         <p>Botの導入は不要です。管理サイトにDiscordでログインして、あなたのサーバーに「遊び方」を登録するだけ。メンバーのランチャーに、サーバーのアイコンつきで表示されます。</p>
         <ul class="check">
           <li>サーバーに <b>s1</b>、<b>s2</b> のように好きな名前で複数登録</li>
-          <li>バニラ(バージョン指定)/ Modrinthのモッドパック / .mrpack / manifest から選べる</li>
-          <li>Modrinthパックなら、新しい版を公開するだけでメンバーに自動反映</li>
-          <li>サーバーの管理権限があれば誰でも編集可能</li>
+          <li>バニラ(バージョン指定)/ Modrinth・CurseForge・FTB のモッドパック / .mrpack / zip / manifest から選べる</li>
+          <li>zip は、Minecraftのバージョンとローダーを中身から<b>自動判定</b></li>
+          <li>パックのバージョンを<b>選んで固定</b>、または最新に自動追従。自動更新のオン/オフも切り替えられる</li>
+          <li>接続先は<b>予備アドレス</b>(最大3つ)・接続テスト・変更履歴つき</li>
+          <li>管理者権限がなくても、最初に登録した人(登録者)や、招待リンクで編集者になれる</li>
         </ul>
         <p><a class="btn" href="/admin/">管理サイトを開く</a></p>
       </div>
       <pre class="code" aria-label="登録イメージ">サーバー名   s1
 遊び方       Modrinth のMODパック
 パック       modrinth.com/modpack/...
+バージョン   最新(自動で追従) ▼
 接続先       play.example.com:25565
+予備         backup.example.com
              ☑ 起動後に自動で接続する</pre>
     </div>
   </section>
@@ -110,6 +120,10 @@
     <details><summary>無料ですか?</summary><p>はい。ランチャーは無料です。Minecraft Java Editionのアカウントは別途必要です。</p></details>
     <details><summary>Discordでログインが必要なのはなぜ?</summary><p>あなたが参加しているDiscordサーバーを調べ、そのサーバーに登録されたパックだけを表示するためです。取得するのはユーザー名と所属サーバー一覧(identify / guilds)のみです。</p></details>
     <details><summary>MODは安全ですか?</summary><p>MODは任意のプログラムを実行できます。信頼できる管理者のサーバーのパックだけ起動してください。初回は配布元を確認するダイアログが出ます。</p></details>
+    <details><summary>メモリはどれくらい割り当てればいいですか?</summary><p>軽いMODパックやバニラなら 2〜4GB、重いMODパックは 6〜8GB が目安です。マイリストの各サーバーで選べます。「既定」のままだと、詳細設定の最大メモリを使います。</p></details>
+    <details><summary>パックの自動更新を止められますか?</summary><p>止めるかどうかは、そのDiscordサーバーの管理者が決めます。管理者がバージョンを固定したサーバーは、全員が同じ版のまま遊べます。</p></details>
+    <details><summary>ログを共有しても安全ですか?</summary><p>ログは外部サービス mclo.gs に送られ、URLを知っている人は誰でも見られます。アクセストークンとパソコンのユーザー名は伏せて送りますが、サーバーのアドレスや導入しているMODの一覧は含まれます。見せてよい相手にだけURLを渡してください。送る前に確認ダイアログが出ます。</p></details>
+    <details><summary>Discordの管理者でなくても、サーバーを登録できますか?</summary><p>まだ誰も登録していないDiscordサーバーは、最初に管理サイトで「登録する」を押した人が登録者になれます。登録者や管理者が発行した招待リンクを使えば、編集者にもなれます。</p></details>
     <details><summary>オフラインモードは使えますか?</summary><p>オフライン認証のサーバー向けに用意しています。通常のサーバーではMicrosoftアカウントでログインしてください。</p></details>
     <details><summary>公式のランチャーとの関係は?</summary><p>MojangやMicrosoftとは無関係の非公式ツールです。「Minecraft」はMojang ABの商標です。</p></details>
   </section>

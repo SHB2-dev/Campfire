@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, safeStorage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -68,7 +68,26 @@ function readToken(d) {
 }
 
 const send = (ch, data) => win && !win.isDestroyed() && win.webContents.send(ch, data);
-const log = (m) => send('log', m);
+// ログに含まれる秘密(アクセストークン)やユーザー名は、画面に出す前・アップロードする前に必ず伏せる。
+// 起動ライブラリが「起動引数」を丸ごとデバッグ出力するので、そこに --accessToken が入る
+function redact(text) {
+  return String(text)
+    .replace(/(--accessToken\s+)\S+/gi, '$1***')
+    .replace(/(access_?token["'=:\s]+)[A-Za-z0-9._-]{20,}/gi, '$1***')
+    .replace(/\beyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}/g, '***')
+    .replace(/(Bearer\s+)[A-Za-z0-9._-]{20,}/gi, '$1***')
+    .replace(/([A-Za-z]:\\Users\\)[^\\\s]+/gi, '$1<user>')
+    .replace(/(\/(?:Users|home)\/)[^/\s]+/g, '$1<user>');
+}
+
+// 画面のログの控え(「ランチャーの画面のログ」のアップロード用)。古い行から捨てる
+const logLines = [];
+const log = (m) => {
+  const line = redact(m);
+  logLines.push(line);
+  if (logLines.length > 5000) logLines.splice(0, logLines.length - 4000);
+  send('log', line);
+};
 
 // ダウンロードの進捗(何を・何%)を画面へ送る。頻繁に送りすぎないよう0.1秒に1回に間引く
 // total が無いときは「処理中」の表示になる
@@ -136,6 +155,7 @@ ipcMain.handle('init', () => {
   const s = loadSettings();
   return {
     settings: { javaPath: s.javaPath, memoryMax: s.memoryMax, notifyUpdates: s.notifyUpdates !== false },
+    totalMemGb: Math.floor(os.totalmem() / gib),
     discord: s.discord?.user || null,
     account: mcAccount && { name: mcAccount.name },
     myList: s.myList,
@@ -188,6 +208,16 @@ ipcMain.handle('add-server', (_e, id) => {
   return myList;
 });
 
+// 起動構成(サーバー)ごとのメモリ割り当て。空文字 = 設定画面の既定値を使う
+const MEMORY_RE = /^([1-9]\d?)G$/; // 1G〜99G
+ipcMain.handle('set-memory', (_e, id, value) => {
+  const v = String(value || '');
+  if (v && !MEMORY_RE.test(v)) throw new Error('メモリは 1G〜99G の形式で指定してください');
+  const myList = loadSettings().myList.map((i) => (i.id === id ? { ...i, memory: v } : i));
+  saveSettings({ myList });
+  return myList;
+});
+
 ipcMain.handle('remove-server', (_e, id) => {
   const myList = loadSettings().myList.filter((i) => i.id !== id);
   saveSettings({ myList });
@@ -207,6 +237,69 @@ ipcMain.handle('login-offline', (_e, name) => {
 });
 
 ipcMain.handle('open-folder', () => shell.openPath(dataDir()));
+
+// 起動に使うメモリ。構成ごとの指定があればそれ、なければ設定画面の既定値。最小値が最大値を超えないようにする
+const toMb = (s) => (/G$/i.test(s) ? parseInt(s, 10) * 1024 : parseInt(s, 10));
+function pickMemory(perServer, settings) {
+  const max = MEMORY_RE.test(perServer || '') ? perServer : settings.memoryMax;
+  const min = toMb(settings.memoryMin) > toMb(max) ? max : settings.memoryMin;
+  return { max, min };
+}
+
+// ---- ログを mclo.gs にアップロード ----
+async function uploadToMclogs(content) {
+  const r = await fetch('https://api.mclo.gs/1/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'packhearth-launcher' },
+    body: new URLSearchParams({ content: content.slice(-9_000_000) }), // 上限(10MB)に収まるよう、末尾を送る
+    signal: AbortSignal.timeout(30_000),
+  });
+  const j = await r.json().catch(() => null);
+  if (!j?.success || typeof j.url !== 'string') throw new Error(j?.error || `mclo.gs への送信に失敗しました (${r.status})`);
+  return j.url;
+}
+
+ipcMain.handle('upload-log', async (_e, serverId) => {
+  const gameDir = Number.isInteger(serverId) ? path.join(dataDir(), 'instances', `s${serverId}`) : null;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question', title: 'ログをアップロード',
+    buttons: ['ゲームのログ (latest.log)', '直近のクラッシュレポート', 'ランチャーの画面のログ', 'キャンセル'],
+    defaultId: 0, cancelId: 3,
+    message: 'どのログを mclo.gs にアップロードしますか?',
+    detail: 'ログは外部サービス mclo.gs に送られ、URLを知っている人は誰でも見られます。アクセストークンとパソコンのユーザー名は伏せて送りますが、ログにはサーバーのアドレスや導入しているMODの一覧などが含まれます。不具合の相談など、見せてよい相手にだけURLを渡してください。',
+  });
+  if (response === 3) return null;
+
+  let content;
+  if (response === 2) {
+    content = logLines.join('\n');
+  } else {
+    if (!gameDir) throw new Error('先にサーバーを選んでください');
+    let file;
+    if (response === 0) {
+      file = path.join(gameDir, 'logs', 'latest.log');
+    } else {
+      const dir = path.join(gameDir, 'crash-reports');
+      const reports = fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.txt')) : [];
+      reports.sort((a, b) => fs.statSync(path.join(dir, b)).mtimeMs - fs.statSync(path.join(dir, a)).mtimeMs);
+      if (!reports.length) throw new Error('クラッシュレポートがありません');
+      file = path.join(dir, reports[0]);
+    }
+    if (!fs.existsSync(file)) throw new Error('ログファイルがまだありません(一度ゲームを起動すると作られます)');
+    content = fs.readFileSync(file, 'utf8');
+  }
+  if (!content.trim()) throw new Error('ログが空です');
+
+  const url = await uploadToMclogs(redact(content));
+  clipboard.writeText(url);
+  const { response: r2 } = await dialog.showMessageBox(win, {
+    type: 'info', title: 'アップロードしました', buttons: ['ブラウザで開く', '閉じる'], defaultId: 1, cancelId: 1,
+    message: 'ログをアップロードしました', detail: `${url}\n\nURLはクリップボードにコピーしました。`,
+  });
+  // 外部サービスから受け取ったURLなので、mclo.gs のもの(https)だけ開く
+  if (r2 === 0 && new URL(url).protocol === 'https:' && new URL(url).hostname === 'mclo.gs') shell.openExternal(url);
+  return url;
+});
 // サーバーの稼働状況(一覧に表示)。同じアドレスは20秒キャッシュして、無駄に接続しない
 const pingCache = new Map();
 async function pingCached(address) {
@@ -312,7 +405,7 @@ ipcMain.handle('play', async (_e, id) => {
     root,
     javaPath: javaBins.gameJava,
     version: { number: resolved.minecraft, type: 'release', custom },
-    memory: { max: settings.memoryMax, min: settings.memoryMin },
+    memory: pickMemory(item.memory, settings),
     overrides: { gameDirectory: gameDir },
     // Forge 1.17+ / NeoForge に必要なモジュールパスや --add-opens など(起動ライブラリは自前では付けない)
     customArgs: custom ? loaderJvmArgs(root, custom) : undefined,

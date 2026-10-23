@@ -15,13 +15,20 @@ const addLog = (m) => {
   if (logEl.textContent.length > MAX_LOG_CHARS) logEl.textContent = logEl.textContent.slice(-MAX_LOG_CHARS * 0.75);
   logEl.scrollTop = logEl.scrollHeight;
 };
+// ログは最初は非表示。「ログを表示」で出し入れする(エラーが出たときは、原因が見えるよう自動で表示する)
+function showLog(visible) {
+  logEl.hidden = !visible;
+  $('logToggle').textContent = visible ? 'ログを隠す' : 'ログを表示';
+  $('logToggle').setAttribute('aria-expanded', String(visible));
+  if (visible) logEl.scrollTop = logEl.scrollHeight;
+}
 const refreshPlay = () => {
   const item = myList.find((i) => i.id === selectedId);
   $('play').disabled = busy || !account || !item || item.gone;
   $('sel').textContent = item ? `${item.guild.name} / ${item.entry.name}` : 'サーバーを選んでください';
 };
 const guard = (fn) => async (...a) => {
-  try { await fn(...a); } catch (e) { addLog('エラー: ' + (e.message || e)); busy = false; refreshPlay(); showProgress(null); }
+  try { await fn(...a); } catch (e) { addLog('エラー: ' + (e.message || e)); showLog(true); busy = false; refreshPlay(); showProgress(null); }
 };
 
 function el(tag, cls, text) {
@@ -70,6 +77,26 @@ function renderRail() {
   $('home').classList.toggle('on', view === 'home');
 }
 
+// 起動構成(サーバー)ごとのメモリ割り当て。「既定」は詳細設定の最大メモリを使う
+let defaultMemory = '4G';
+let totalMemGb = 8;
+function memoryRow(item) {
+  const row = el('div', 'memrow');
+  row.append(el('span', null, 'メモリ'));
+  const sel = el('select', 'mem');
+  sel.title = 'このサーバーを起動するときに使うメモリ(最大)';
+  const options = [2, 3, 4, 6, 8, 10, 12, 16, 24, 32].filter((g) => g <= Math.max(2, totalMemGb - 1)).map((g) => `${g}G`);
+  if (item.memory && !options.includes(item.memory)) options.push(item.memory); // 他の形式で保存済みの値も残す
+  const def = el('option', null, `既定 (${defaultMemory})`);
+  def.value = '';
+  sel.append(def, ...options.map((v) => { const o = el('option', null, v.replace('G', ' GB')); o.value = v; return o; }));
+  sel.value = item.memory || '';
+  sel.onclick = (e) => e.stopPropagation(); // カードの選択を邪魔しない
+  sel.onchange = guard(async () => { myList = await api.setMemory(item.id, sel.value); });
+  row.append(sel);
+  return row;
+}
+
 function renderHome(root) {
   if (!myList.length) {
     root.append(el('p', 'muted', discord
@@ -83,6 +110,7 @@ function renderHome(root) {
     info.append(el('b', null, i.entry.name), el('small', null, `${i.guild.name} · ${i.gone ? '削除されたか、参加していません' : describe(i.entry)}`));
     if (i.entry.description && !i.gone) info.append(el('small', 'muted', i.entry.description));
     if (i.entry.address && !i.gone) info.append(statusLine(i.entry.address));
+    if (!i.gone) info.append(memoryRow(i));
     const rm = el('button', 'ghost sm', '外す');
     rm.onclick = guard(async (e) => { e.stopPropagation(); myList = await api.removeServer(i.id); if (selectedId === i.id) selectedId = null; render(); });
     card.append(info, rm);
@@ -153,6 +181,8 @@ const reload = guard(async () => {
   const init = await api.init();
   $('java').value = init.settings.javaPath;
   $('max').value = init.settings.memoryMax;
+  defaultMemory = init.settings.memoryMax;
+  totalMemGb = init.totalMemGb || totalMemGb;
   $('notify').checked = init.settings.notifyUpdates;
   setDiscord(init.discord);
   if (init.account) setAccount(init.account);
@@ -215,9 +245,17 @@ $('ms').onclick = guard(async () => setAccount(await api.loginMicrosoft()));
 $('off').onclick = guard(async () => setAccount(await api.loginOffline($('offname').value)));
 $('save').onclick = guard(async () => {
   await api.saveSettings({ javaPath: $('java').value.trim(), memoryMax: $('max').value.trim(), notifyUpdates: $('notify').checked });
+  defaultMemory = $('max').value.trim() || '4G';
+  render(); // 各サーバーの「既定 (○G)」の表示を更新
   addLog('設定を保存しました');
 });
 $('folder').onclick = () => api.openFolder();
+$('logToggle').onclick = () => showLog(logEl.hidden);
+// ログを mclo.gs にアップロード(どのログを送るかは、確認ダイアログで選ぶ)
+$('logUpload').onclick = guard(async () => {
+  const url = await api.uploadLog(selectedId);
+  if (url) addLog(`ログをアップロードしました: ${url}`);
+});
 $('admin').onclick = guard(() => api.openAdmin());
 $('play').onclick = guard(async () => {
   busy = true; refreshPlay();

@@ -47,7 +47,11 @@
   </nav>
   <div class="head"><h2 id="title">マイリスト</h2></div>
   <div id="view" class="view"></div>
-  <pre id="log"></pre>
+  <div class="logbar">
+    <button id="logToggle" class="ghost sm" aria-expanded="false" aria-controls="log">ログを表示</button>
+    <button id="logUpload" class="ghost sm" title="ログを mclo.gs にアップロードして、共有用のURLを作ります">ログをアップロード (mclo.gs)</button>
+  </div>
+  <pre id="log" hidden></pre>
   <div id="progressText" class="progress-text"></div>
   <div class="bar"><div id="fill"></div></div>
   <div class="foot"><span id="sel" class="muted">サーバーを選んでください</span><button id="play" disabled>プレイ</button></div>

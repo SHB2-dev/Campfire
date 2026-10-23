@@ -43,7 +43,12 @@ details{margin-top:12px;font-size:13px}
 .ver{font-size:12px}
 label.check{display:flex;align-items:center;gap:8px;color:#aab2c5}
 label.check input{width:auto;margin:0}
-pre{height:96px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.logbar{display:flex;gap:8px;flex-wrap:wrap}
+.logbar button{margin:0}
+pre[hidden]{display:none}
+.card select.mem{width:auto;margin:6px 0 0;padding:3px 6px;font-size:12px;background:#14161c;color:#cfd5e6;border:1px solid #2c3140;border-radius:6px}
+.card .memrow{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:#8b93a7}
+pre{height:140px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
 .bar{height:6px;background:#2c3140;border-radius:3px;overflow:hidden}
 #fill{height:100%;width:0;background:#4f8cff;transition:width .2s}
 #fill.indet{width:30%;transition:none;animation:slide 1.2s ease-in-out infinite}

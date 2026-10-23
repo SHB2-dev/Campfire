@@ -36,7 +36,7 @@ function avatar(guild, cls) {
 }
 function describe(s) {
   const kinds = {
-    vanilla: `Minecraft ${s.minecraft}`, modrinth: 'MODパック (自動更新)', curseforge: 'MODパック (CurseForge)',
+    vanilla: `Minecraft ${s.minecraft}`, modrinth: 'MODパック (自動更新)', curseforge: 'MODパック (CurseForge)', ftb: 'MODパック (FTB)',
     mrpack: 'MODパック', zip: `MODパック (zip)${s.minecraft ? ' · ' + s.minecraft : ''}`, manifest: 'MODパック',
   };
   const loader = s.type === 'vanilla' && s.loader !== 'vanilla' ? ` / ${s.loader}` : '';

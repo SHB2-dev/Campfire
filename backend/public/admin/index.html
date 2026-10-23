@@ -82,6 +82,7 @@
             <option value="vanilla">バニラ(バージョン指定)</option>
             <option value="modrinth">Modrinth のMODパック(おすすめ・自動更新)</option>
             <option value="curseforge">CurseForge のMODパック(自動更新)</option>
+            <option value="ftb">FTB(Feed The Beast)のMODパック(自動更新)</option>
             <option value="mrpack">.mrpack ファイルのURL</option>
             <option value="zip">普通のzip(mods/ config/ を詰めたもの)</option>
             <option value="manifest">独自 manifest.json のURL</option>
@@ -103,7 +104,7 @@
           </label>
           <label>ローダーのバージョン(空欄=自動で最新)<input name="loaderVersion" maxlength="50"></label>
         </div>
-        <div data-for="modrinth curseforge mrpack zip manifest" hidden>
+        <div data-for="modrinth curseforge ftb mrpack zip manifest" hidden>
           <label><span id="srcLabel"></span><input name="source" maxlength="500"></label>
           <p class="muted" id="srcHelp"></p>
         </div>

@@ -27,6 +27,7 @@ function el(tag, cls, text) {
 const SRC = {
   modrinth: ['Modrinth のモッドパックURL', 'https://modrinth.com/modpack/... を貼り付けてください。パックが更新されると、プレイヤーは次回起動時に自動で更新されます。'],
   curseforge: ['CurseForge のモッドパックURL(またはパックzipのURL)', 'https://www.curseforge.com/minecraft/modpacks/... を貼り付けてください。最新のリリースが次回起動時に自動で反映されます。作者が外部配布を禁止しているMODは、ダウンロードできずエラーになることがあります。'],
+  ftb: ['FTB のパックページのURL(またはパックID)', 'https://www.feed-the-beast.com/modpacks/... を貼り付けてください。最新のリリース版が次回起動時に自動で反映されます。大きなパックは、初回のダウンロードに時間がかかります。'],
   zip: ['zipファイルのURL(https)', 'mods/ や config/ などをそのまま詰めたzipです。Minecraft バージョンとローダーは「自動判定」のままで、zipの中身(MODの情報やパックの設定ファイル)から自動で判定されます。判定できなかったときだけ、手で指定してください。zipを差し替えると、次回起動時に config も含めて更新されます。'],
   mrpack: ['.mrpack ファイルのURL(https)', 'Modrinth 形式のパックファイルを置いた場所のURLです。ファイルを差し替えると次回起動時に更新されます。'],
   manifest: ['manifest.json のURL(https)', '上級者向け。README の manifest 形式に従ったJSONのURLです。'],
@@ -120,7 +121,7 @@ $('#testAddr').onclick = async () => {
 const describe = (s) =>
   ({
     vanilla: `Minecraft ${s.minecraft}${s.loader !== 'vanilla' ? ' / ' + s.loader : ''}`,
-    modrinth: `Modrinth: ${s.source}`, curseforge: `CurseForge: ${s.source}`,
+    modrinth: `Modrinth: ${s.source}`, curseforge: `CurseForge: ${s.source}`, ftb: `FTB: ${s.source}`,
     mrpack: '.mrpack', zip: `zip · ${s.minecraft || '自動判定'} / ${s.loader === 'auto' ? '自動' : s.loader}`, manifest: 'manifest',
   })[s.type];
 

@@ -1,7 +1,7 @@
 // サーバー登録の検証・整形
 const { validateAddress } = require('./netguard');
 const LOADERS = ['vanilla', 'fabric', 'quilt', 'forge', 'neoforge'];
-const TYPES = ['vanilla', 'modrinth', 'curseforge', 'mrpack', 'zip', 'manifest'];
+const TYPES = ['vanilla', 'modrinth', 'curseforge', 'ftb', 'mrpack', 'zip', 'manifest'];
 
 let vCache = { at: 0, list: [] };
 async function mojangVersions() {
@@ -71,6 +71,19 @@ async function validate(body, { curseforge = false } = {}) {
     const url = slug ? null : httpsUrl(raw);
     if (!slug && !url) return { error: 'CurseForge のモッドパックURL(https://www.curseforge.com/minecraft/modpacks/...)か、パックzipのURLを入力してください' };
     v.source = slug ? slug.toLowerCase() : url;
+  } else if (type === 'ftb') {
+    // FTB のパックページURL(https://www.feed-the-beast.com/modpacks/35-ftb-revelation)か、数字のパックID
+    const raw = str(b.source, 300);
+    const id = /feed-the-beast\.com\/modpacks\/(\d{1,8})/i.exec(raw)?.[1] || (/^\d{1,8}$/.test(raw) ? raw : null);
+    if (!id) return { error: 'FTB のパックページのURL(https://www.feed-the-beast.com/modpacks/...)か、パックIDを入力してください' };
+    // 実在するパックか確認(固定のホストへの問い合わせ。FTBに繋がらないときは確認せず通す)
+    try {
+      const r = await fetch(`https://api.feed-the-beast.com/v1/modpacks/public/modpack/${id}`, { signal: AbortSignal.timeout(6000) });
+      const j = await r.json().catch(() => null);
+      // 見つからないときは HTTP 404 + {"status":"error"} が返る
+      if (r.status === 404 || j?.status === 'error') return { error: `FTB にパックID ${id} が見つかりません(非公開のパックは使えません)` };
+    } catch { /* 確認できなくても登録は許可する */ }
+    v.source = id;
   } else if (type === 'modrinth') {
     const raw = str(b.source, 300);
     const slug = /modrinth\.com\/modpack\/([\w-]+)/.exec(raw)?.[1] || (/^[\w-]{2,64}$/.test(raw) ? raw : null);

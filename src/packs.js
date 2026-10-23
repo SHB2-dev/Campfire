@@ -257,6 +257,8 @@ async function resolveRaw(entry, cacheDir, log, ctx) {
     }
     case 'curseforge':
       return resolveCurseforge(entry.source, cacheDir, ctx, log);
+    case 'ftb':
+      return resolveFtb(entry.source, log);
     default:
       throw new Error(`未対応の種類: ${entry.type}`);
   }
@@ -343,6 +345,55 @@ async function resolveCurseforge(source, cacheDir, ctx, log) {
   };
 }
 
+// FTB(Feed The Beast)公式配布のパック。公開APIにファイル一覧(URL・ハッシュ付き)と
+// Minecraft / ローダーのバージョンが載っているので、最新のリリース版をそのまま使う
+const FTB_API = 'https://api.feed-the-beast.com/v1/modpacks/public/modpack';
+const FTB_LOADERS = new Set(['forge', 'neoforge', 'fabric', 'quilt']);
+
+async function ftbJson(url) {
+  const r = await fetch(assertHttps(url), { headers: UA });
+  if (!r.ok) throw new Error(`FTB のサーバーから取得できません (${r.status})`);
+  const j = await r.json();
+  if (j.status === 'error') throw new Error(`FTB: ${j.message || 'パックが見つかりません'}`);
+  return j;
+}
+
+async function resolveFtb(source, log) {
+  const id = String(source).trim();
+  if (!/^\d{1,8}$/.test(id)) throw new Error('FTB のパックIDが不正です');
+  const pack = await ftbJson(`${FTB_API}/${id}`);
+  const versions = (pack.versions || []).filter((v) => v.type === 'release');
+  const latest = (versions.length ? versions : pack.versions || []).reduce((a, b) => (!a || b.id > a.id ? b : a), null);
+  if (!latest) throw new Error(`FTB のパック「${pack.name || id}」に配布バージョンがありません`);
+  log(`FTB ${pack.name} ${latest.name} を確認中`);
+  const ver = await ftbJson(`${FTB_API}/${id}/${latest.id}`);
+
+  const target = (type) => (ver.targets || []).find((t) => t.type === type);
+  const game = target('game');
+  const loader = target('modloader');
+  if (!game?.version) throw new Error('FTB のパックに Minecraft バージョンの指定がありません');
+  if (loader && !FTB_LOADERS.has(loader.name)) throw new Error(`未対応のローダー: ${loader.name}`);
+
+  const files = [];
+  const lazyFiles = [];
+  for (const f of ver.files || []) {
+    if (f.serveronly || f.optional) continue; // サーバー専用・任意ファイルは入れない
+    if (typeof f.url !== 'string' || typeof f.name !== 'string') throw new Error('FTB のファイル情報が不正です');
+    const rel = path.posix.normalize(`${f.path || ''}/${f.name}`).replace(/^(\.\/|\/)+/, '');
+    const item = { path: rel, url: f.url, sha1: typeof f.sha1 === 'string' ? f.sha1 : undefined };
+    // MOD は毎回ハッシュを確認。設定などは、パック更新時だけ上書きする
+    (rel.startsWith('mods/') ? files : lazyFiles).push(item);
+  }
+  return {
+    minecraft: game.version,
+    loader: loader ? loader.name : 'vanilla',
+    loaderVersion: loader?.version || '',
+    files, lazyFiles, strictMods: false,
+    packHash: sha1Of(Buffer.from(`ftb:${id}:${latest.id}`)),
+    label: `FTB ${pack.name} ${latest.name}`,
+  };
+}
+
 function readState(gameDir) {
   try { return JSON.parse(fs.readFileSync(path.join(gameDir, STATE_NAME), 'utf8')); } catch { return {}; }
 }
@@ -352,11 +403,19 @@ async function syncFiles(resolved, gameDir, log, onProgress) {
   const state = readState(gameDir);
   const newPaths = new Set(resolved.extracted || []);
   const todo = [];
+  const packChanged = resolved.packHash !== (state.packHash ?? null);
   for (const f of resolved.files) {
     const dest = safeJoin(gameDir, f.path);
     newPaths.add(f.path);
     if (fs.existsSync(dest) && f.sha1 && sha1Of(fs.readFileSync(dest)) === f.sha1) continue;
     todo.push({ f, dest });
+  }
+  // 設定ファイルなど(lazyFiles)は、無いときとパックが更新されたときだけ取得する。
+  // 毎回ハッシュを照合して上書きすると、プレイヤーが変えた設定が起動のたびに戻ってしまうため
+  for (const f of resolved.lazyFiles || []) {
+    const dest = safeJoin(gameDir, f.path);
+    newPaths.add(f.path);
+    if (packChanged || !fs.existsSync(dest)) todo.push({ f, dest });
   }
 
   let done = 0;
@@ -374,7 +433,8 @@ async function syncFiles(resolved, gameDir, log, onProgress) {
       if (++done === todo.length || todo.length <= 10 || done % 10 === 0) log(`MODをダウンロード中 ${done}/${todo.length}`);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(4, todo.length) }, worker));
+  // 小さなファイルが数百件あるパック(FTB など)は並列数を増やす
+  await Promise.all(Array.from({ length: Math.min(todo.length > 50 ? 12 : 4, todo.length) }, worker));
 
   // 前回管理していたが、新しいパックに無いファイルを削除(MODの入れ替え対応)
   let removed = 0;
@@ -392,7 +452,6 @@ async function syncFiles(resolved, gameDir, log, onProgress) {
   }
 
   // 設定ファイル等(overrides / zip の中身)は、パックが更新されたときだけ展開する
-  const packChanged = resolved.packHash !== (state.packHash ?? null);
   if (packChanged) resolved.applyOverrides?.(gameDir);
   fs.writeFileSync(path.join(gameDir, STATE_NAME), JSON.stringify({ packHash: resolved.packHash, managed: [...newPaths] }));
   return { downloaded: todo.length, removed, packChanged, firstRun: !('packHash' in state) };

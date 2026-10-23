@@ -87,7 +87,23 @@ function render({ usage, downloads, generatedAt }) {
       const tr = el('tr');
       const cell = el('td');
       const gc = el('div', 'gcell');
-      gc.append(guildIcon({ name: g.name || g.id, icon: g.icon }), el('span', null, g.name || `(名前未取得) ${g.id}`));
+      const shown = g.name || g.label;
+      gc.append(guildIcon({ name: shown || g.id, icon: g.icon }), el('span', null, shown || `(名前未取得) ${g.id}`));
+      // Discord から名前を取れないサーバーには、開発者がメモ(名前)を付けられる
+      if (!g.name) {
+        if (g.label) gc.append(el('span', 'tag', 'メモ'));
+        const btn = el('button', 'btn ghost sm', g.label ? '変更' : '名前を付ける');
+        btn.onclick = async () => {
+          const v = prompt(`サーバーID ${g.id} の名前(メモ)。空にすると消えます`, g.label || '');
+          if (v === null) return;
+          try {
+            const r = await fetch('/admin/api/dev/guild-label', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: g.id, label: v }) });
+            if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `エラー (${r.status})`);
+            load();
+          } catch (err) { alert(err.message); }
+        };
+        gc.append(btn);
+      }
       cell.append(gc);
       tr.append(cell,
         el('td', 'num', fmtNum(g.servers)),
@@ -100,6 +116,9 @@ function render({ usage, downloads, generatedAt }) {
     }
     wrap.append(table);
     sec2.append(wrap, el('p', 'help', '利用者数は、ランチャーでそのDiscordサーバーを見た人の数です。ユーザーIDは、元に戻せない形(ハッシュ)で保存した集計で、誰かは分かりません。'));
+    if (usage.guilds.some((g) => !g.name)) {
+      sec2.append(el('p', 'help', '「名前未取得」は、Discord がサーバーの名前を、参加していない人には教えないためです。名前は、次のどれかで入ります: そのサーバーの管理者・編集者・メンバーが管理サイトやランチャーを開く / サーバーのウィジェットが有効 / あなたがそのサーバーに参加している。どれでも取れないときは、「名前を付ける」で自分用のメモを付けられます(数字は、サーバーのIDです)。'));
+    }
   }
   body.append(sec2, el('p', 'help', `更新: ${fmtDate(generatedAt)}`));
 }

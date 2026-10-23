@@ -107,9 +107,37 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
     });
   }));
 
+  // Discordは、参加していない相手にサーバー名を教えない。例外は「ウィジェット」を有効にしているサーバー(認証なしで名前だけ取れる)
+  const widgetMiss = new Map(); // 取れなかったIDは、1時間は再確認しない
+  async function fillNamesFromWidget() {
+    const ids = db.unnamedGuildIds().filter((id) => (widgetMiss.get(id) || 0) < Date.now()).slice(0, 10);
+    await Promise.all(ids.map(async (id) => {
+      try {
+        const r = await fetch(`https://discord.com/api/v10/guilds/${id}/widget.json`, { signal: AbortSignal.timeout(5000) });
+        const j = r.ok ? await r.json() : null;
+        if (j?.name) { db.recordGuildNames([{ id, name: j.name, icon: null }]); return; }
+      } catch { /* ウィジェットが無効、または通信できない */ }
+      widgetMiss.set(id, Date.now() + 3600_000);
+    }));
+  }
+
+  // 開発者が、名前の取れないDiscordサーバーにメモ(名前)を付ける。空で消す
+  r.post('/api/dev/guild-label', wrap(async (req, res) => {
+    if (!DEVELOPERS.has(req.session.user_id)) throw fail(403, '開発者のみ操作できます');
+    const id = String(req.body?.id || '');
+    const label = String(req.body?.label || '').trim().slice(0, 40);
+    if (!/^\d{5,25}$/.test(id)) throw fail(400, 'サーバーIDが不正です');
+    db.setGuildLabel(id, label);
+    res.json({ ok: true });
+  }));
+
   // --- 開発者専用: ダウンロード数と、連携しているDiscordサーバーの詳細 ---
   r.get('/api/dev/stats', wrap(async (req, res) => {
     if (!DEVELOPERS.has(req.session.user_id)) throw fail(403, '開発者のみ見られます');
+    // 名前をまだ記録できていないDiscordサーバーのうち、開発者自身が参加しているものは、ここで名前を補う
+    const mine = await dc.userGuilds(req.session).catch(() => null);
+    if (mine) db.recordGuildNames(mine.map(dc.publicGuild));
+    await fillNamesFromWidget(); // 名前が取れないサーバーは、Discordのウィジェットが有効なら取得する
     const downloads = await loadDownloads().catch((e) => ({ error: e.message }));
     res.json({ usage: db.devUsage(), downloads, generatedAt: Date.now() });
   }));
@@ -187,7 +215,8 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
   }));
 
   r.post('/api/guilds/:gid/servers', wrap(async (req, res) => {
-    await guildOf(req);
+    const g = await guildOf(req);
+    db.recordGuildNames([dc.publicGuild(g)]);
     const { value, error } = await validate(req.body, { curseforge: cf.enabled() });
     if (error) return res.status(400).json({ error });
     if (db.countServers(req.params.gid) >= MAX_PER_GUILD) return res.status(400).json({ error: `1サーバーにつき${MAX_PER_GUILD}個までです` });
@@ -244,7 +273,8 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
   }));
 
   r.put('/api/guilds/:gid/servers/:id', wrap(async (req, res) => {
-    await guildOf(req);
+    const g = await guildOf(req);
+    db.recordGuildNames([dc.publicGuild(g)]);
     const { value, error } = await validate(req.body, { curseforge: cf.enabled() });
     if (error) return res.status(400).json({ error });
     const before = db.getServer(Number(req.params.id));

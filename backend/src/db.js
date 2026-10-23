@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS guilds_seen (
   first_seen INTEGER NOT NULL,
   last_seen INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS guild_labels (guild_id TEXT PRIMARY KEY, label TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS guild_users (
   guild_id TEXT NOT NULL,
   user_hash TEXT NOT NULL,
@@ -182,14 +183,30 @@ module.exports = {
     guilds: db.prepare('SELECT COUNT(DISTINCT guild_id) AS n FROM servers').get().n,
     servers: db.prepare('SELECT COUNT(*) AS n FROM servers').get().n,
   }),
+  // 名前の補完用: すでにサーバーが登録されているDiscordサーバーに限って、名前とアイコンだけを記録する(利用者としては数えない)
+  recordGuildNames: (guilds) => {
+    const now = Date.now();
+    for (const g of guilds) {
+      if (!db.prepare('SELECT 1 FROM servers WHERE guild_id=? LIMIT 1').get(g.id)) continue;
+      db.prepare('INSERT INTO guilds_seen (guild_id,name,icon,first_seen,last_seen) VALUES (?,?,?,?,?) ON CONFLICT(guild_id) DO UPDATE SET name=excluded.name, icon=excluded.icon')
+        .run(g.id, String(g.name).slice(0, 100), g.icon || null, now, now);
+    }
+  },
+  // 開発者が付けるメモ(名前)。空文字で消す
+  setGuildLabel: (guildId, label) => {
+    if (!label) db.prepare('DELETE FROM guild_labels WHERE guild_id=?').run(guildId);
+    else db.prepare('INSERT INTO guild_labels (guild_id,label) VALUES (?,?) ON CONFLICT(guild_id) DO UPDATE SET label=excluded.label').run(guildId, label);
+  },
+  unnamedGuildIds: () => db.prepare('SELECT DISTINCT s.guild_id AS id FROM servers s LEFT JOIN guilds_seen g ON g.guild_id=s.guild_id WHERE g.name IS NULL').all().map((r) => r.id),
   devUsage: () => {
     const now = Date.now();
     const day = 86400_000;
     const count = (sql, ...a) => db.prepare(sql).get(...a).n;
     const guilds = db.prepare(`
       SELECT s.guild_id AS id, COUNT(*) AS servers, MAX(s.updated_at) AS updated, MIN(s.updated_at) AS created,
-             g.name AS name, g.icon AS icon, g.last_seen AS lastSeen
+             g.name AS name, g.icon AS icon, g.last_seen AS lastSeen, l.label AS label
       FROM servers s LEFT JOIN guilds_seen g ON g.guild_id = s.guild_id
+      LEFT JOIN guild_labels l ON l.guild_id = s.guild_id
       GROUP BY s.guild_id ORDER BY servers DESC, updated DESC`).all();
     for (const g of guilds) {
       g.users = count('SELECT COUNT(*) AS n FROM guild_users WHERE guild_id=?', g.id);

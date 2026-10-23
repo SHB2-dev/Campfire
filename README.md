@@ -13,6 +13,7 @@ Windows / macOS / Linux 対応(Electron)。
 ```
 
 - 登録できる遊び方: **バニラ(全バージョン・スナップショット含む)** / **Modrinth モッドパックURL(自動更新)** / **CurseForge モッドパックURL(自動更新)** / **FTB(Feed The Beast)パック(自動更新、APIキー不要)** / `.mrpack` URL / **普通の zip**(mods/ config/ を詰めたもの) / 独自 `manifest.json`
+- Modrinth / CurseForge / FTB のパックは、管理サイトで**バージョンを選んで固定**できます(「バージョン一覧を読み込む」)。「最新」のままなら、新しい版が出るたびに自動で追従します。固定すると、メンバー全員が同じ版に揃います。`.mrpack` / zip はURL自体が版を表すので、URLを変えると更新されます
 - CurseForge は API キー(`CURSEFORGE_API_KEY`)をバックエンドに設定したときだけ有効。キーはサーバーだけが保持します。作者が外部配布を禁止している MOD は取得できずエラーになります
 - ローダー: Fabric / Quilt / Forge / NeoForge(バニラの指定でも、パック内の指定でも可)
 - **Java は自動導入**(Mojang 公式ランタイム。バージョンごとに必要な Java を自動で選択)

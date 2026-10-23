@@ -276,7 +276,7 @@ ipcMain.handle('play', async (_e, id) => {
     log(pinned ? '初回の導入です(このパックは管理者が自動更新をオフにしています)' : 'パックの更新を確認中...');
     // CurseForge は API キーを持つバックエンド経由で問い合わせる
     const curseforge = {
-      pack: (slug) => backend(`/api/curseforge/pack?slug=${encodeURIComponent(slug)}`),
+      pack: (slug, fileId) => backend(`/api/curseforge/pack?slug=${encodeURIComponent(slug)}${fileId ? `&fileId=${encodeURIComponent(fileId)}` : ''}`),
       files: (ids) => backend('/api/curseforge/files', { method: 'POST', body: JSON.stringify({ fileIds: ids }) }),
     };
     resolved = await resolveEntry(entry, path.join(root, 'cache'), log, { curseforge });

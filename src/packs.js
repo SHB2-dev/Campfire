@@ -208,7 +208,7 @@ async function resolveEntry(entry, cacheDir, log, ctx = {}) {
 // パックの「出どころ」の指紋。管理者が遊び方やバージョンを変えたら変わる
 // (自動更新オフで固定中でも、別のパックに切り替わったときは入れ直すために使う)
 function entryFingerprint(entry) {
-  return sha1Of(Buffer.from(JSON.stringify([entry.type, entry.source, entry.minecraft, entry.loader, entry.loaderVersion])));
+  return sha1Of(Buffer.from(JSON.stringify([entry.type, entry.source, entry.minecraft, entry.loader, entry.loaderVersion, entry.packVersion || ''])));
 }
 
 async function resolveRaw(entry, cacheDir, log, ctx) {
@@ -260,23 +260,30 @@ async function resolveRaw(entry, cacheDir, log, ctx) {
     case 'mrpack':
       return resolveMrpack(entry.source, cacheDir, false, 'mrpack');
     case 'modrinth': {
-      const { url, label } = await modrinthLatest(entry.source);
+      const { url, label } = await modrinthLatest(entry.source, entry.packVersion);
       return resolveMrpack(url, cacheDir, true, `Modrinth ${entry.source} ${label}`);
     }
     case 'curseforge':
-      return resolveCurseforge(entry.source, cacheDir, ctx, log);
+      return resolveCurseforge(entry.source, cacheDir, ctx, log, entry.packVersion);
     case 'ftb':
-      return resolveFtb(entry.source, log);
+      return resolveFtb(entry.source, log, entry.packVersion);
     default:
       throw new Error(`未対応の種類: ${entry.type}`);
   }
 }
 
-async function modrinthLatest(slug) {
+// versionId を指定したらその版、省略したら最新のリリース版
+async function modrinthLatest(slug, versionId) {
   const r = await fetch(`https://api.modrinth.com/v2/project/${encodeURIComponent(slug)}/version`, { headers: UA });
   if (!r.ok) throw new Error(`Modrinth のパック「${slug}」が見つかりません (${r.status})`);
   const versions = await r.json();
-  const v = versions.find((x) => x.version_type === 'release') || versions[0];
+  let v;
+  if (versionId) {
+    v = versions.find((x) => x.id === versionId);
+    if (!v) throw new Error('指定されたバージョンが Modrinth に見つかりません(管理者に、バージョンの選び直しを依頼してください)');
+  } else {
+    v = versions.find((x) => x.version_type === 'release') || versions[0];
+  }
   const f = v && (v.files.find((x) => x.primary) || v.files[0]);
   if (!f) throw new Error(`Modrinth のパック「${slug}」に配布ファイルがありません`);
   return { url: f.url, label: v.version_number };
@@ -306,13 +313,13 @@ async function resolveMrpack(url, cacheDir, immutable, label) {
 }
 
 // CurseForge のパックzip: manifest.json に MOD の fileID 一覧があり、実体はバックエンド経由で取得する
-async function resolveCurseforge(source, cacheDir, ctx, log) {
+async function resolveCurseforge(source, cacheDir, ctx, log, fileId) {
   if (!ctx.curseforge) throw new Error('CurseForge パックの取得には Discord ログインが必要です');
   let url = source;
   let immutable = false;
   let label = 'CurseForge';
   if (!/^https:\/\//.test(source)) {
-    const p = await ctx.curseforge.pack(source);
+    const p = await ctx.curseforge.pack(source, fileId);
     url = p.url;
     immutable = true; // URL にファイルIDが含まれるので内容は不変
     label = `CurseForge ${p.name} (${p.displayName || p.fileName})`;
@@ -366,12 +373,19 @@ async function ftbJson(url) {
   return j;
 }
 
-async function resolveFtb(source, log) {
+async function resolveFtb(source, log, versionId) {
   const id = String(source).trim();
   if (!/^\d{1,8}$/.test(id)) throw new Error('FTB のパックIDが不正です');
   const pack = await ftbJson(`${FTB_API}/${id}`);
   const versions = (pack.versions || []).filter((v) => v.type === 'release');
-  const latest = (versions.length ? versions : pack.versions || []).reduce((a, b) => (!a || b.id > a.id ? b : a), null);
+  // versionId を指定したらその版、省略したら最新のリリース版
+  let latest;
+  if (versionId) {
+    latest = (pack.versions || []).find((v) => String(v.id) === String(versionId));
+    if (!latest) throw new Error('指定されたバージョンが FTB に見つかりません(管理者に、バージョンの選び直しを依頼してください)');
+  } else {
+    latest = (versions.length ? versions : pack.versions || []).reduce((a, b) => (!a || b.id > a.id ? b : a), null);
+  }
   if (!latest) throw new Error(`FTB のパック「${pack.name || id}」に配布バージョンがありません`);
   log(`FTB ${pack.name} ${latest.name} を確認中`);
   const ver = await ftbJson(`${FTB_API}/${id}/${latest.id}`);

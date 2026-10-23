@@ -16,6 +16,11 @@ async function mojangVersions() {
   return vCache.list;
 }
 
+// パックの指定(ページURLまたはID/スラッグ)から識別子を取り出す。不正なら null
+const parseFtbId = (raw) => /feed-the-beast\.com\/modpacks\/(\d{1,8})/i.exec(raw)?.[1] || (/^\d{1,8}$/.test(raw) ? raw : null);
+const parseModrinthSlug = (raw) => /modrinth\.com\/modpack\/([\w-]+)/.exec(raw)?.[1] || (/^[\w-]{2,64}$/.test(raw) ? raw : null);
+const parseCurseforgeSlug = (raw) => /curseforge\.com\/minecraft\/modpacks\/([a-z0-9-]+)/i.exec(raw)?.[1]?.toLowerCase() || null;
+
 const httpsUrl = (u) => {
   try { const x = new URL(u); return x.protocol === 'https:' && u.length <= 500 ? x.href : null; } catch { return null; }
 };
@@ -67,14 +72,14 @@ async function validate(body, { curseforge = false } = {}) {
   } else if (type === 'curseforge') {
     if (!curseforge) return { error: 'このサーバーでは CurseForge が有効になっていません(API キー未設定)' };
     const raw = str(b.source, 500);
-    const slug = /curseforge\.com\/minecraft\/modpacks\/([a-z0-9-]+)/i.exec(raw)?.[1];
+    const slug = parseCurseforgeSlug(raw);
     const url = slug ? null : httpsUrl(raw);
     if (!slug && !url) return { error: 'CurseForge のモッドパックURL(https://www.curseforge.com/minecraft/modpacks/...)か、パックzipのURLを入力してください' };
     v.source = slug ? slug.toLowerCase() : url;
   } else if (type === 'ftb') {
     // FTB のパックページURL(https://www.feed-the-beast.com/modpacks/35-ftb-revelation)か、数字のパックID
     const raw = str(b.source, 300);
-    const id = /feed-the-beast\.com\/modpacks\/(\d{1,8})/i.exec(raw)?.[1] || (/^\d{1,8}$/.test(raw) ? raw : null);
+    const id = parseFtbId(raw);
     if (!id) return { error: 'FTB のパックページのURL(https://www.feed-the-beast.com/modpacks/...)か、パックIDを入力してください' };
     // 実在するパックか確認(固定のホストへの問い合わせ。FTBに繋がらないときは確認せず通す)
     try {
@@ -86,13 +91,22 @@ async function validate(body, { curseforge = false } = {}) {
     v.source = id;
   } else if (type === 'modrinth') {
     const raw = str(b.source, 300);
-    const slug = /modrinth\.com\/modpack\/([\w-]+)/.exec(raw)?.[1] || (/^[\w-]{2,64}$/.test(raw) ? raw : null);
+    const slug = parseModrinthSlug(raw);
     if (!slug) return { error: 'Modrinth のモッドパックURL(https://modrinth.com/modpack/...)を入力してください' };
     v.source = slug;
   } else {
     const url = httpsUrl(str(b.source, 500));
     if (!url) return { error: 'https:// で始まるURLを入力してください' };
     v.source = url;
+  }
+  // パックのバージョン指定(空 = 最新に自動で追従)。Modrinth / CurseForge(ページURL) / FTB のみ
+  const pv = str(b.packVersion, 64);
+  if (pv) {
+    const re = { modrinth: /^[\w.-]{1,64}$/, curseforge: /^\d{1,12}$/, ftb: /^\d{1,12}$/ }[type];
+    if (!re) return { error: 'このパック形式では、バージョンの指定はできません(Modrinth / CurseForge / FTB のみ)' };
+    if (!re.test(pv)) return { error: 'パックのバージョンの形式が不正です' };
+    if (type === 'curseforge' && v.source.startsWith('https://')) return { error: 'CurseForge のパックzipのURLを直接指定した場合は、バージョンを選べません(zipのURL自体が版を表します)' };
+    v.packVersion = pv;
   }
   return { value: v };
 }
@@ -101,7 +115,7 @@ const serialize = (r) => ({
   id: r.id, guildId: r.guild_id, name: r.name, description: r.description,
   address: r.address, altAddresses: r.alt_addresses ? r.alt_addresses.split('\n') : [], autoConnect: !!r.auto_connect, autoUpdate: r.auto_update !== 0,
   type: r.source_type, source: r.source, minecraft: r.minecraft,
-  loader: r.loader, loaderVersion: r.loader_version, updatedAt: r.updated_at,
+  loader: r.loader, loaderVersion: r.loader_version, packVersion: r.pack_version || '', updatedAt: r.updated_at,
 });
 
-module.exports = { validate, serialize, mojangVersions, LOADERS };
+module.exports = { validate, serialize, mojangVersions, LOADERS, parseFtbId, parseModrinthSlug, parseCurseforgeSlug };

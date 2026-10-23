@@ -30,9 +30,14 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
+// アイコンが無いサーバーは、名前の頭文字(単語の先頭を並べる。1語なら先頭2文字)を表示する
+function initials(name) {
+  const words = String(name).trim().split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words.map((w) => [...w][0]).join('') : [...(words[0] || '?')].slice(0, 2).join('')).slice(0, 3);
+}
 function avatar(guild, cls) {
   if (guild.icon) { const i = el('img', cls); i.src = guild.icon; i.alt = ''; return i; }
-  return el('span', `${cls} ph`, guild.name.slice(0, 1));
+  return el('span', `${cls} ph`, initials(guild.name));
 }
 function describe(s) {
   const kinds = {
@@ -40,7 +45,7 @@ function describe(s) {
     mrpack: 'MODパック', zip: `MODパック (zip)${s.minecraft ? ' · ' + s.minecraft : ''}`, manifest: 'MODパック',
   };
   const loader = s.type === 'vanilla' && s.loader !== 'vanilla' ? ` / ${s.loader}` : '';
-  const pinned = s.type !== 'vanilla' && s.autoUpdate === false ? ' · 更新固定' : '';
+  const pinned = (s.packVersion ? ' · バージョン指定' : '') + (s.type !== 'vanilla' && s.autoUpdate === false ? ' · 更新固定' : '');
   return kinds[s.type] + loader + pinned + (s.address ? ` · ${s.address}` : '');
 }
 
@@ -56,9 +61,9 @@ function renderRail() {
   const rail = $('guilds');
   rail.replaceChildren();
   for (const g of groups) {
-    const b = el('button', `chip${view === g.guild.id ? ' on' : ''}`);
+    const b = el('button', `tile${view === g.guild.id ? ' on' : ''}`);
     b.title = g.guild.name;
-    b.append(avatar(g.guild, 'av'), el('span', null, g.guild.name));
+    b.append(avatar(g.guild, 'av'), el('span', 'name', g.guild.name));
     b.onclick = () => { view = g.guild.id; render(); };
     rail.append(b);
   }

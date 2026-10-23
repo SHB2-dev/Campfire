@@ -109,6 +109,17 @@
           <p class="muted" id="srcHelp"></p>
         </div>
 
+        <div data-for="modrinth curseforge ftb" hidden>
+          <label>パックのバージョン
+            <select name="packVersion"><option value="">最新(自動で追従)</option></select>
+          </label>
+          <div class="inline">
+            <button type="button" id="loadVersions" class="ghost">バージョン一覧を読み込む</button>
+            <span id="verResult" class="muted"></span>
+          </div>
+          <p class="muted small">「最新」のままだと、パックの新しい版が出るたびに、メンバーに自動で反映されます。バージョンを選ぶと、全員がその版に揃い、新しい版が出ても変わりません(別の版に変えるまで固定)。上の「パックのURL」を入力してから、一覧を読み込んでください。</p>
+        </div>
+
         <div data-for="modrinth curseforge ftb mrpack zip manifest" hidden>
           <label class="row"><input type="checkbox" name="autoUpdate" checked> MODパックを自動で更新する</label>
           <p class="muted small">オフにすると、プレイヤーのランチャーは起動時に更新を確認せず、いま入っている版のまま起動します(初めて起動する人には、そのときの最新版が入ります)。イベント中に版を変えたくないときなどに使います。</p>

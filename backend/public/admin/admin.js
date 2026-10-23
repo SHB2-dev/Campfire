@@ -71,6 +71,8 @@ function showForm(s) {
   form.loader.value = s?.loader || 'vanilla';
   form.loaderVersion.value = s?.loaderVersion || '';
   form.source.value = s?.source || '';
+  resetVersions(s?.packVersion || '');
+  if (s && VERSIONABLE.includes(s.type) && s.source) loadVersions(); // 編集時は、選べる一覧も読み込んでおく
   const isOld = s?.minecraft && !versions.some((v) => v.id === s.minecraft && v.type === 'release');
   $('#showAll').checked = !!isOld;
   fillVersions(s?.minecraft);
@@ -80,6 +82,42 @@ function showForm(s) {
   form.scrollIntoView({ behavior: 'smooth' });
 }
 function hideForm() { form.hidden = true; $('#new').hidden = false; }
+
+// --- パックのバージョン指定(Modrinth / CurseForge / FTB) ---
+const VERSIONABLE = ['modrinth', 'curseforge', 'ftb'];
+const verOption = (value, text) => { const o = el('option', null, text); o.value = value; return o; };
+
+// 選択肢を「最新」+(指定中の版があればそれ)に戻す。パックのURLや形式を変えたときに使う
+function resetVersions(selected) {
+  const sel = form.packVersion;
+  sel.replaceChildren(verOption('', '最新(自動で追従)'));
+  if (selected) sel.append(verOption(selected, `指定中: ${selected}`));
+  sel.value = selected || '';
+  $('#verResult').textContent = '';
+}
+
+function versionLabel(v) {
+  const date = v.date ? new Date(v.date).toLocaleDateString('ja-JP') : '';
+  const kind = v.type && v.type !== 'release' ? ` [${v.type}]` : '';
+  const extra = [v.mc && `MC ${v.mc}`, v.loaders?.length && v.loaders.join('/')].filter(Boolean).join(' · ');
+  return `${v.name}${kind}  ·  ${date}${extra ? '  ·  ' + extra : ''}`;
+}
+
+async function loadVersions() {
+  const out = $('#verResult');
+  if (!form.source.value.trim()) { out.className = 'bad'; out.textContent = '先にパックのURLを入力してください'; return; }
+  out.className = 'muted';
+  out.textContent = '読み込み中...';
+  try {
+    const { versions } = await api('POST', '/pack-versions', { type: form.type.value, source: form.source.value });
+    const sel = form.packVersion;
+    const current = sel.value;
+    sel.replaceChildren(verOption('', '最新(自動で追従)'), ...versions.map((v) => verOption(v.id, versionLabel(v))));
+    if (current && !versions.some((v) => v.id === current)) sel.append(verOption(current, `指定中: ${current}(一覧に無い版)`));
+    sel.value = current;
+    out.textContent = `${versions.length}件を読み込みました`;
+  } catch (err) { out.className = 'bad'; out.textContent = err.message; }
+}
 
 // 接続先アドレスの変更履歴(編集時のみ表示)
 async function loadHistory(s) {
@@ -134,7 +172,7 @@ async function loadServers() {
   for (const s of servers) {
     const row = el('div', 'item');
     const info = el('div');
-    const pinned = s.type !== 'vanilla' && !s.autoUpdate ? ' · 更新固定' : '';
+    const pinned = (s.packVersion ? ' · バージョン指定' : '') + (s.type !== 'vanilla' && !s.autoUpdate ? ' · 更新固定' : '');
     info.append(el('b', null, s.name), el('small', 'muted', `${describe(s)}${s.address ? ' · ' + s.address : ''}${pinned}`));
     const edit = el('button', 'ghost', '編集');
     edit.onclick = () => showForm(s);
@@ -228,7 +266,11 @@ $('#invNew').onclick = async () => {
   } catch (err) { $('#invNote').textContent = err.message; }
 };
 
+$('#loadVersions').onclick = loadVersions;
+// パックのURLや形式を変えたら、前のパックのバージョン一覧は使えないので「最新」に戻す
+form.source.onchange = () => resetVersions('');
 form.type.onchange = () => {
+  resetVersions('');
   syncForm();
   // 新規で zip を選んだときは、最初から「自動判定」にする
   if (form.type.value === 'zip' && !editing) { form.minecraft.value = ''; form.loader.value = 'auto'; }
@@ -240,7 +282,7 @@ form.onsubmit = async (e) => {
   e.preventDefault();
   const body = {
     name: form.name.value, description: form.description.value, address: form.address.value, altAddresses: form.altAddresses.value,
-    autoConnect: form.autoConnect.checked, autoUpdate: form.autoUpdate.checked, type: form.type.value, minecraft: form.minecraft.value,
+    autoConnect: form.autoConnect.checked, autoUpdate: form.autoUpdate.checked, packVersion: VERSIONABLE.includes(form.type.value) ? form.packVersion.value : '', type: form.type.value, minecraft: form.minecraft.value,
     loader: form.loader.value, loaderVersion: form.loaderVersion.value, source: form.source.value,
   };
   try {
@@ -252,14 +294,24 @@ form.onsubmit = async (e) => {
 };
 $('#logout').onclick = async () => { await api('POST', '/logout', {}); location.reload(); };
 
+// サーバーのアイコン。無いときは名前の頭文字(単語の先頭を並べる。1語なら先頭2文字)
+function initials(name) {
+  const words = String(name).trim().split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words.map((w) => [...w][0]).join('') : [...(words[0] || '?')].slice(0, 2).join('')).slice(0, 3);
+}
+function guildIcon(g) {
+  if (g.icon) { const i = el('img', 'gicon'); i.src = g.icon; i.alt = ''; return i; }
+  return el('span', 'gicon ph', initials(g.name));
+}
+
 function renderClaimable(list) {
   $('#claim').hidden = !list.length;
   const box = $('#claimList');
   box.replaceChildren();
   for (const g of list) {
     const b = el('button', 'g');
-    if (g.icon) { const i = el('img'); i.src = g.icon; i.alt = ''; b.append(i); }
-    b.append(el('span', null, g.name), el('small', 'tag', '登録する'));
+    b.title = g.name;
+    b.append(guildIcon(g), el('span', 'gname', g.name), el('small', 'tag', '登録する'));
     b.onclick = async () => {
       if (!confirm(`「${g.name}」を登録しますか?\n最初に登録した人がこのサーバーの登録者になり、編集者を招待できます。`)) return;
       try { await api('POST', `/guilds/${g.id}/claim`, {}); location.reload(); }
@@ -323,8 +375,8 @@ const clearInvite = () => { try { sessionStorage.removeItem('invite'); } catch {
   for (const g of guilds) {
     const b = el('button', 'g');
     b.dataset.id = g.id;
-    if (g.icon) { const i = el('img'); i.src = g.icon; i.alt = ''; b.append(i); }
-    b.append(el('span', null, g.name));
+    b.title = g.name;
+    b.append(guildIcon(g), el('span', 'gname', g.name));
     if (ROLE_LABEL[g.role]) b.append(el('small', 'tag', ROLE_LABEL[g.role]));
     b.onclick = () => selectGuild(g);
     nav.append(b);

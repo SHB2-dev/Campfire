@@ -51,15 +51,41 @@ async function filesInfo(ids) {
 }
 
 // モッドパックのスラッグ → 最新のリリースファイル
-async function latestPack(slug) {
+async function findPack(slug) {
   if (!/^[a-z0-9][a-z0-9-]{1,99}$/.test(slug)) throw Object.assign(new Error('bad_request'), { status: 400 });
   const q = new URLSearchParams({ gameId: GAME_MINECRAFT, classId: CLASS_MODPACKS, slug, pageSize: 1 });
   const mod = (await cf(`/mods/search?${q}`))[0];
   if (!mod) throw Object.assign(new Error('CurseForge のパックが見つかりません'), { status: 404 });
+  return mod;
+}
+
+// fileId を指定したらその版、省略したら最新のリリース版
+async function latestPack(slug, fileId) {
+  const mod = await findPack(slug);
+  if (fileId !== undefined && fileId !== '') {
+    if (!/^\d{1,12}$/.test(String(fileId))) throw Object.assign(new Error('bad_request'), { status: 400 });
+    const f = await cf(`/mods/${mod.id}/files/${fileId}`).catch(() => null);
+    if (!f) throw Object.assign(new Error('指定されたバージョンが見つかりません(管理者に、バージョンの選び直しを依頼してください)'), { status: 404 });
+    return { name: mod.name, ...shape(f) };
+  }
   const files = (mod.latestFiles || []).slice().sort((a, b) => new Date(b.fileDate) - new Date(a.fileDate));
   const f = files.find((x) => x.releaseType === 1) || files[0];
   if (!f) throw Object.assign(new Error('配布ファイルがありません'), { status: 404 });
   return { name: mod.name, ...shape(f) };
 }
 
-module.exports = { enabled, filesInfo, latestPack };
+// 管理サイトの「バージョンを選ぶ」用。新しい順に最大50件
+async function listPackFiles(slug) {
+  const mod = await findPack(slug);
+  const files = await cf(`/mods/${mod.id}/files?pageSize=50`);
+  return files
+    .sort((a, b) => new Date(b.fileDate) - new Date(a.fileDate))
+    .map((f) => ({
+      id: String(f.id), name: f.displayName || f.fileName, date: f.fileDate,
+      mc: (f.gameVersions || []).find((v) => /^\d+\.\d+/.test(v)) || '',
+      loaders: (f.gameVersions || []).filter((v) => /^(forge|neoforge|fabric|quilt)$/i.test(v)).map((v) => v.toLowerCase()),
+      type: f.releaseType === 1 ? 'release' : f.releaseType === 2 ? 'beta' : 'alpha',
+    }));
+}
+
+module.exports = { enabled, filesInfo, latestPack, listPackFiles };

@@ -9,6 +9,7 @@ const { wrap } = require('./api');
 const cf = require('./curseforge');
 const { validateAddress } = require('./netguard');
 const { ping } = require('./mcping');
+const { listVersions } = require('./packversions');
 
 const MAX_PER_GUILD = 25;
 const MAX_EDITORS = 20;
@@ -204,6 +205,18 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
         address: h.address, altAddresses: h.alt_addresses ? h.alt_addresses.split('\n') : [], by: h.changed_by_name, at: h.changed_at,
       })),
     });
+  }));
+
+  // パックのバージョン一覧(Modrinth / CurseForge / FTB)。固定の配布元へ問い合わせるだけなので、利用者ごとに1分20回まで
+  const versionUsage = new Map();
+  r.post('/api/pack-versions', wrap(async (req, res) => {
+    if (!(await manageable(req)).out.length) throw fail(403, '権限がありません');
+    const now = Date.now();
+    const rec = versionUsage.get(req.session.user_id) || { n: 0, reset: now + 60_000 };
+    if (now > rec.reset) { rec.n = 0; rec.reset = now + 60_000; }
+    if (++rec.n > 20) throw fail(429, '少し待ってからもう一度お試しください');
+    versionUsage.set(req.session.user_id, rec);
+    res.json({ versions: await listVersions(String(req.body?.type || ''), String(req.body?.source || '').slice(0, 300)) });
   }));
 
   // 接続テスト。バックエンドが外部へ接続するので、利用者ごとに1分10回まで(SSRF対策は mcping 側で実施)

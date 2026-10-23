@@ -79,7 +79,7 @@ function createApi({ clientId, clientSecret, publicUrl, allowedRedirects, extra 
       res.json({ files: await curseforge.filesInfo(ids) });
     }));
     app.get('/api/curseforge/pack', bearer, wrap(async (req, res) => {
-      res.json(await curseforge.latestPack(String(req.query.slug || '')));
+      res.json(await curseforge.latestPack(String(req.query.slug || ''), req.query.fileId === undefined ? undefined : String(req.query.fileId)));
     }));
   }
 

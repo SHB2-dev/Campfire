@@ -8,130 +8,196 @@
 <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-<header>
-  <a class="brand" href="/">Packhearth</a><span class="muted">管理</span>
-  <a class="navlink" href="/">← ホームページ</a>
-  <span id="me"></span>
-  <button id="logout" class="ghost" hidden>ログアウト</button>
+<header class="bar">
+  <a class="brand" href="/">Packhearth</a><span class="brand-sub">管理</span>
+  <span class="spacer"></span>
+  <a id="devLink" class="btn ghost sm" href="/admin/dev" hidden>開発者</a>
+  <span id="me" class="me"></span>
+  <button id="logout" class="btn ghost sm" hidden>ログアウト</button>
 </header>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-<div id="login" class="box" hidden>
-  <h1>Discordサーバーの管理者向け</h1>
-  <p>自分のDiscordサーバーで遊べるMODパックやバージョンを登録すると、サーバーのメンバーのランチャーにワンクリックで追加できるようになります。</p>
-  <p id="inviteHint" class="ok" hidden>編集者への招待を受け取りました。Discordでログインすると参加できます。</p>
-  <p>
-    <a class="btn" href="/admin/login">Discordでログイン</a>
-    <a class="btn ghost" href="/">ホームページに戻る</a>
-  </p>
-</div>
-
-<div id="app" class="wrap" hidden>
-  <nav>
-    <div id="guilds"></div>
-    <div id="claim" hidden>
-      <h3>未登録のサーバー</h3>
-      <p class="muted small">最初に「登録する」を押した人が、そのサーバーの登録者(オーナー)になれます。管理者権限は不要です。</p>
-      <div id="claimList"></div>
-    </div>
-  </nav>
-  <section>
-    <p id="notice" class="ok" hidden></p>
-    <p id="empty" class="muted" hidden>管理できるDiscordサーバーがありません(サーバー管理権限が必要です)。</p>
-    <div id="panel" hidden>
-      <h1 id="gname"></h1>
-      <div id="list"></div>
-      <button id="new">＋ サーバーを追加</button>
-
-      <div id="team" class="team" hidden>
-        <h2>編集者</h2>
-        <p class="muted">管理者権限がなくても、招待リンクを受け取った人はこのDiscordサーバーのパックを追加・編集できます(サーバー参加者のみ使えます)。招待リンクを発行できるのは、Discordの管理者とこのサーバーの登録者(オーナー)です。</p>
-        <div id="owner"></div>
-        <div id="editors"></div>
-        <div class="inline">
-          <select id="invHours" aria-label="有効期間">
-            <option value="1">1時間</option><option value="24" selected>24時間</option><option value="168">7日</option><option value="720">30日</option>
-          </select>
-          <select id="invUses" aria-label="使用回数">
-            <option value="1" selected>1人まで</option><option value="5">5人まで</option><option value="20">20人まで</option>
-          </select>
-          <button id="invNew">招待リンクを発行</button>
-        </div>
-        <p id="invNote" class="muted"></p>
-        <div id="invites"></div>
-      </div>
-
-      <form id="form" hidden>
-        <h2 id="ftitle"></h2>
-        <label>サーバー名(ランチャーに表示 例: s1)<input name="name" maxlength="30" required></label>
-        <label>説明(任意)<input name="description" maxlength="300"></label>
-        <label>接続先アドレス(任意 例: play.example.com:25565)<input name="address" maxlength="100"></label>
-        <label>予備アドレス(任意・1行に1つ・最大3つ)<textarea name="altAddresses" rows="2" maxlength="320" placeholder="backup.example.com"></textarea></label>
-        <p class="muted small">メインのアドレスに繋がらないとき、ランチャーが予備アドレスへ自動で切り替えます。</p>
-        <div class="inline">
-          <button type="button" id="testAddr" class="ghost">接続テスト</button>
-          <span id="testResult" class="muted"></span>
-        </div>
-        <div id="historyBox" hidden>
-          <h3>アドレスの変更履歴</h3>
-          <div id="history"></div>
-        </div>
-        <label class="row"><input type="checkbox" name="autoConnect" checked> 起動後に自動で接続する</label>
-
-        <label>遊び方
-          <select name="type">
-            <option value="vanilla">バニラ(バージョン指定)</option>
-            <option value="modrinth">Modrinth のMODパック(おすすめ・自動更新)</option>
-            <option value="curseforge">CurseForge のMODパック(自動更新)</option>
-            <option value="ftb">FTB(Feed The Beast)のMODパック(自動更新)</option>
-            <option value="mrpack">.mrpack ファイルのURL</option>
-            <option value="zip">普通のzip(mods/ config/ を詰めたもの)</option>
-            <option value="manifest">独自 manifest.json のURL</option>
-          </select>
-        </label>
-
-        <div data-for="vanilla zip">
-          <label>Minecraft バージョン<select name="minecraft"></select></label>
-          <label class="row"><input type="checkbox" id="showAll"> スナップショットや古いバージョンも表示</label>
-          <label>MODローダー
-            <select name="loader">
-              <option value="auto" data-auto disabled hidden>自動判定(おすすめ)</option>
-              <option value="vanilla">なし(バニラ)</option>
-              <option value="fabric">Fabric</option>
-              <option value="quilt">Quilt</option>
-              <option value="forge">Forge</option>
-              <option value="neoforge">NeoForge</option>
-            </select>
-          </label>
-          <label>ローダーのバージョン(空欄=自動で最新)<input name="loaderVersion" maxlength="50"></label>
-        </div>
-        <div data-for="modrinth curseforge ftb mrpack zip manifest" hidden>
-          <label><span id="srcLabel"></span><input name="source" maxlength="500"></label>
-          <p class="muted" id="srcHelp"></p>
-        </div>
-
-        <div data-for="modrinth curseforge ftb" hidden>
-          <label>パックのバージョン
-            <select name="packVersion"><option value="">最新(自動で追従)</option></select>
-          </label>
-          <div class="inline">
-            <button type="button" id="loadVersions" class="ghost">バージョン一覧を読み込む</button>
-            <span id="verResult" class="muted"></span>
-          </div>
-          <p class="muted small">「最新」のままだと、パックの新しい版が出るたびに、メンバーに自動で反映されます。バージョンを選ぶと、全員がその版に揃い、新しい版が出ても変わりません(別の版に変えるまで固定)。上の「パックのURL」を入力してから、一覧を読み込んでください。</p>
-        </div>
-
-        <div data-for="modrinth curseforge ftb mrpack zip manifest" hidden>
-          <label class="row"><input type="checkbox" name="autoUpdate" checked> MODパックを自動で更新する</label>
-          <p class="muted small">オフにすると、プレイヤーのランチャーは起動時に更新を確認せず、いま入っている版のまま起動します(初めて起動する人には、そのときの最新版が入ります)。イベント中に版を変えたくないときなどに使います。</p>
-        </div>
-
-        <p id="err" class="err"></p>
-        <button type="submit">保存</button>
-        <button type="button" id="cancel" class="ghost">キャンセル</button>
-      </form>
-    </div>
+<main>
+  <!-- ログイン前 -->
+  <section id="login" class="login card" hidden>
+    <h1>Discordサーバーの管理者向け</h1>
+    <p>自分のDiscordサーバーで遊べるMODパックやバージョンを登録すると、サーバーのメンバーのランチャーにワンクリックで追加できるようになります。</p>
+    <p id="inviteHint" class="banner ok" hidden>招待URLを受け取りました。Discordでログインすると、権限が付与されます。</p>
+    <p class="row-actions">
+      <a class="btn" href="/admin/login">Discordでログイン</a>
+      <a class="btn ghost" href="/">ホームページに戻る</a>
+    </p>
   </section>
-</div>
+
+  <div id="app" hidden>
+    <p id="notice" class="banner" hidden></p>
+
+    <!-- サーバー管理 -->
+    <section id="view-guilds">
+      <h2 class="section-title">Discordサーバー</h2>
+      <div id="guilds" class="tiles" role="list"></div>
+      <p id="empty" class="empty" hidden></p>
+
+      <div id="panel" class="card panel" hidden>
+        <div class="panel-head">
+          <span id="gicon"></span>
+          <div class="panel-title"><h1 id="gname"></h1><span id="grole" class="badge"></span></div>
+        </div>
+        <div class="tabs" role="tablist">
+          <button class="tab on" id="tab-servers" role="tab" aria-selected="true" aria-controls="pane-servers">サーバー</button>
+          <button class="tab" id="tab-members" role="tab" aria-selected="false" aria-controls="pane-members" hidden>メンバーと招待</button>
+        </div>
+
+        <!-- サーバーの一覧と、追加・編集 -->
+        <div id="pane-servers" role="tabpanel">
+          <div id="serverList">
+            <div class="toolbar">
+              <h2 id="serverCount">サーバー</h2>
+              <button id="new" class="btn">＋ サーバーを追加</button>
+            </div>
+            <div id="list" class="cards"></div>
+          </div>
+
+          <form id="form" class="form" hidden>
+            <div class="form-head">
+              <h2 id="ftitle"></h2>
+              <button type="button" id="cancelTop" class="btn ghost sm">← 一覧に戻る</button>
+            </div>
+
+            <fieldset class="group">
+              <legend>1. 基本</legend>
+              <label>サーバー名<small>ランチャーに表示されます(例: s1)</small>
+                <input name="name" maxlength="30" required>
+              </label>
+              <label>説明(任意)
+                <input name="description" maxlength="300">
+              </label>
+            </fieldset>
+
+            <fieldset class="group">
+              <legend>2. 遊び方</legend>
+              <label>パックの種類
+                <select name="type">
+                  <option value="vanilla">バニラ(バージョン指定)</option>
+                  <option value="modrinth">Modrinth のMODパック(おすすめ・自動更新)</option>
+                  <option value="curseforge">CurseForge のMODパック(自動更新)</option>
+                  <option value="ftb">FTB(Feed The Beast)のMODパック(自動更新)</option>
+                  <option value="mrpack">.mrpack ファイルのURL</option>
+                  <option value="zip">普通のzip(mods/ config/ を詰めたもの)</option>
+                  <option value="manifest">独自 manifest.json のURL</option>
+                </select>
+              </label>
+
+              <div data-for="vanilla zip" class="sub">
+                <label>Minecraft バージョン
+                  <select name="minecraft"></select>
+                </label>
+                <label class="check"><input type="checkbox" id="showAll"> スナップショットや古いバージョンも表示</label>
+                <label>MODローダー
+                  <select name="loader">
+                    <option value="auto" data-auto disabled hidden>自動判定(おすすめ)</option>
+                    <option value="vanilla">なし(バニラ)</option>
+                    <option value="fabric">Fabric</option>
+                    <option value="quilt">Quilt</option>
+                    <option value="forge">Forge</option>
+                    <option value="neoforge">NeoForge</option>
+                  </select>
+                </label>
+                <label>ローダーのバージョン<small>空欄なら、自動で最新(Forge は推奨版)</small>
+                  <input name="loaderVersion" maxlength="50">
+                </label>
+              </div>
+
+              <div data-for="modrinth curseforge ftb mrpack zip manifest" class="sub" hidden>
+                <label><span id="srcLabel"></span>
+                  <input name="source" maxlength="500">
+                </label>
+                <p class="help" id="srcHelp"></p>
+              </div>
+
+              <div data-for="modrinth curseforge ftb" class="sub" hidden>
+                <label>パックのバージョン
+                  <select name="packVersion"><option value="">最新(自動で追従)</option></select>
+                </label>
+                <div class="inline">
+                  <button type="button" id="loadVersions" class="btn ghost sm">バージョン一覧を読み込む</button>
+                  <span id="verResult" class="muted"></span>
+                </div>
+                <p class="help">「最新」のままだと、パックの新しい版が出るたびに、メンバーに自動で反映されます。バージョンを選ぶと、全員がその版に揃い、別の版に変えるまで固定されます。先に、上のパックのURLを入力してください。</p>
+              </div>
+
+              <div data-for="modrinth curseforge ftb mrpack zip manifest" class="sub" hidden>
+                <label class="check"><input type="checkbox" name="autoUpdate" checked> MODパックを自動で更新する</label>
+                <p class="help">オフにすると、メンバーのランチャーは、起動時に更新を確認せず、いま入っている版のまま起動します(初めて起動する人には、そのときの最新版が入ります)。イベント中に版を変えたくないときなどに使います。</p>
+              </div>
+            </fieldset>
+
+            <fieldset class="group">
+              <legend>3. 接続先</legend>
+              <label>接続先アドレス(任意)<small>例: play.example.com:25565</small>
+                <input name="address" maxlength="100">
+              </label>
+              <label>予備アドレス(任意)<small>1行に1つ・最大3つ。メインに繋がらないとき、ランチャーが自動で切り替えます</small>
+                <textarea name="altAddresses" rows="2" maxlength="320" placeholder="backup.example.com"></textarea>
+              </label>
+              <div class="inline">
+                <button type="button" id="testAddr" class="btn ghost sm">接続テスト</button>
+                <span id="testResult" class="muted"></span>
+              </div>
+              <label class="check"><input type="checkbox" name="autoConnect" checked> 起動後に自動で接続する</label>
+              <details id="historyBox" hidden>
+                <summary>アドレスの変更履歴</summary>
+                <div id="history"></div>
+              </details>
+            </fieldset>
+
+            <div class="actions">
+              <p id="err" class="err" role="alert"></p>
+              <button type="button" id="cancel" class="btn ghost">キャンセル</button>
+              <button type="submit" class="btn">保存</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- メンバーと招待(管理者のみ) -->
+        <div id="pane-members" role="tabpanel" hidden>
+          <p class="help">Discordの管理権限を持つ人は、自動で「管理者」です。ここには、<b>招待URLで権限を付与した人</b>が並びます。URLを開いてログインした人のアカウントに、権限が付与されます。</p>
+
+          <div class="card inner">
+            <h3>招待URLを発行する</h3>
+            <div class="grid-form">
+              <label>付与する権限
+                <select id="invRole">
+                  <option value="editor">編集者(パックの追加・編集)</option>
+                  <option value="admin">管理者(編集 + 招待・権限の管理)</option>
+                </select>
+              </label>
+              <label>有効期間
+                <select id="invHours">
+                  <option value="1">1時間</option><option value="24" selected>24時間</option><option value="168">7日</option><option value="720">30日</option>
+                </select>
+              </label>
+              <label>使える人数
+                <select id="invUses">
+                  <option value="1" selected>1人まで</option><option value="5">5人まで</option><option value="20">20人まで</option>
+                </select>
+              </label>
+              <button id="invNew" class="btn">招待URLを発行</button>
+            </div>
+            <p id="invNote" class="help"></p>
+            <div id="invites" class="rows"></div>
+          </div>
+
+          <div class="card inner">
+            <h3>権限を付与されている人</h3>
+            <div id="members" class="rows"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
 <script src="admin.js"></script>
 </body>
 </html>

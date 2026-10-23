@@ -10,9 +10,13 @@ const cf = require('./curseforge');
 const { validateAddress } = require('./netguard');
 const { ping } = require('./mcping');
 const { listVersions } = require('./packversions');
+const { loadDownloads } = require('./downloads');
+
+// 開発者(あなた)だけが見られる画面用。環境変数 DEVELOPER_DISCORD_IDS に DiscordのユーザーID(カンマ区切り)を入れる
+const DEVELOPERS = new Set((process.env.DEVELOPER_DISCORD_IDS || '').split(',').map((x) => x.trim()).filter(Boolean));
 
 const MAX_PER_GUILD = 25;
-const MAX_EDITORS = 20;
+const MAX_MEMBERS = 20;
 const MAX_INVITES = 10;
 
 function cookies(req) {
@@ -68,110 +72,111 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
 
   const fail = (status, error) => Object.assign(new Error(error), { status });
 
-  // 参加中のサーバーのうち、管理者権限 or 招待された編集者として編集できるもの(role 付き)
+  // 権限は2つ。
+  //   admin  : Discordの管理権限を持つ人、または「管理者のURL」で付与された人。パックの編集・招待URLの発行・権限の付与と取り消し
+  //   editor : 「編集者のURL」で付与された人。パックの編集のみ
   const manageable = async (req) => {
     const guilds = await dc.userGuilds(req.session);
     if (!guilds) throw fail(401, 'unauthorized');
-    const out = [];
     const uid = req.session.user_id;
+    const out = [];
     for (const g of guilds) {
-      if (dc.canManage(g)) out.push({ ...g, role: 'admin' });
-      else if (db.getOwner(g.id)?.user_id === uid) out.push({ ...g, role: 'owner' });
-      else if (db.isEditor(g.id, uid)) out.push({ ...g, role: 'editor' });
+      if (dc.canManage(g)) {
+        out.push({ ...g, role: 'admin', granted: false });
+      } else {
+        const role = db.getMemberRole(g.id, uid);
+        if (role) out.push({ ...g, role, granted: true });
+      }
     }
     return { out, all: guilds };
   };
-  // admin(Discordの管理権限) と owner(最初に登録した人) は、編集者の招待・管理もできる
-  const canInvite = (role) => role === 'admin' || role === 'owner';
-  const guildOf = async (req, { inviteRights = false } = {}) => {
+  const guildOf = async (req, { adminOnly = false } = {}) => {
     const g = (await manageable(req)).out.find((x) => x.id === req.params.gid);
     if (!g) throw fail(403, '権限がありません');
-    if (inviteRights && !canInvite(g.role)) throw fail(403, 'この操作はサーバーの管理者または登録者のみ可能です');
+    if (adminOnly && g.role !== 'admin') throw fail(403, 'この操作は管理者のみ可能です');
     return g;
   };
 
   r.get('/api/me', wrap(async (req, res) => {
-    const { out, all } = await manageable(req);
-    const mine = new Set(out.map((g) => g.id));
-    // まだ誰も登録していないサーバーは、参加者なら誰でも最初の登録者(オーナー)になれる
-    const claimable = all.filter((g) => !mine.has(g.id) && !db.isRegistered(g.id)).map(dc.publicGuild);
+    const { out } = await manageable(req);
+    db.recordSeen(req.session.user_id, out.map(dc.publicGuild)); // 利用状況の集計(IDはハッシュ化して保存)
     res.json({
       user: { id: req.session.user_id, name: req.session.username },
-      guilds: out.map((g) => ({ ...dc.publicGuild(g), role: g.role })),
-      claimable,
+      isDeveloper: DEVELOPERS.has(req.session.user_id),
+      guilds: out.map((g) => ({ ...dc.publicGuild(g), role: g.role, granted: g.granted })),
     });
   }));
 
-  // 「このサーバーを登録する」: 先着1人がオーナーになる
-  r.post('/api/guilds/:gid/claim', wrap(async (req, res) => {
-    const guilds = await dc.userGuilds(req.session);
-    if (!guilds) throw fail(401, 'unauthorized');
-    const g = guilds.find((x) => x.id === req.params.gid);
-    if (!g) throw fail(403, 'このDiscordサーバーに参加していません');
-    if (db.isRegistered(g.id) || !db.claimOwner(g.id, req.session.user_id, req.session.username)) {
-      throw fail(409, 'このサーバーは既に登録されています。編集者になるには招待リンクが必要です');
-    }
-    res.json({ guildId: g.id });
+  // --- 開発者専用: ダウンロード数と、連携しているDiscordサーバーの詳細 ---
+  r.get('/api/dev/stats', wrap(async (req, res) => {
+    if (!DEVELOPERS.has(req.session.user_id)) throw fail(403, '開発者のみ見られます');
+    const downloads = await loadDownloads().catch((e) => ({ error: e.message }));
+    res.json({ usage: db.devUsage(), downloads, generatedAt: Date.now() });
   }));
 
-  // 管理者がオーナーを外す(誤登録・乗っ取り対策)
-  r.delete('/api/guilds/:gid/owner', wrap(async (req, res) => {
-    const g = await guildOf(req);
-    if (g.role !== 'admin') throw fail(403, 'オーナーを外せるのはDiscordサーバーの管理者のみです');
-    res.json({ ok: !!db.removeOwner(g.id) });
-  }));
-
-  // --- 招待リンクで編集者を追加 ---
+  // --- 招待URLで権限を付与する(管理者のURL / 編集者のURL) ---
   const randomCode = () => crypto.randomBytes(12).toString('base64url');
 
-  // 招待コードを使って、自分をそのサーバーの編集者にする(サーバー参加者のみ)
+  // 招待コードを使うと、使った本人のアカウントに、そのURLの権限が付与される(そのDiscordサーバーの参加者のみ)
   r.post('/api/invite/redeem', wrap(async (req, res) => {
     const code = typeof req.body?.code === 'string' ? req.body.code : '';
     const inv = db.getInvite(code);
-    if (!inv || inv.expires_at < Date.now() || inv.uses >= inv.max_uses) throw fail(400, '招待リンクが無効か、期限切れです');
+    if (!inv || inv.expires_at < Date.now() || inv.uses >= inv.max_uses) throw fail(400, '招待URLが無効か、期限切れです');
     const guilds = await dc.userGuilds(req.session);
     if (!guilds) throw fail(401, 'unauthorized');
     const g = guilds.find((x) => x.id === inv.guild_id);
-    if (!g) throw fail(403, 'このDiscordサーバーに参加していないため、招待を使えません');
-    const already = dc.canManage(g) || db.isEditor(g.id, req.session.user_id) || db.getOwner(g.id)?.user_id === req.session.user_id;
-    if (!already) {
-      if (db.countEditors(g.id) >= MAX_EDITORS) throw fail(400, `編集者は1サーバーにつき${MAX_EDITORS}人までです`);
-      if (!db.useInvite(code)) throw fail(400, '招待リンクが無効か、期限切れです');
-      db.addEditor(g.id, req.session.user_id, req.session.username, inv.created_by);
-    }
-    res.json({ guildId: g.id, name: g.name });
+    if (!g) throw fail(403, 'このDiscordサーバーに参加していないため、招待URLを使えません');
+    const uid = req.session.user_id;
+    const want = inv.role === 'admin' ? 'admin' : 'editor';
+    // すでにDiscordの管理者の人や、同じ(またはより上の)権限を持つ人には、何も変えない(URLの使用回数も消費しない)
+    const current = dc.canManage(g) ? 'admin' : db.getMemberRole(g.id, uid);
+    if (current === 'admin' || current === want) return res.json({ guildId: g.id, name: g.name, role: current, unchanged: true });
+    if (!current && db.countMembers(g.id) >= MAX_MEMBERS) throw fail(400, `付与できる人数は1サーバーにつき${MAX_MEMBERS}人までです`);
+    if (!db.useInvite(code)) throw fail(400, '招待URLが無効か、期限切れです');
+    db.grantMember(g.id, uid, req.session.username, want, inv.created_by);
+    res.json({ guildId: g.id, name: g.name, role: want });
   }));
 
-  r.get('/api/guilds/:gid/editors', wrap(async (req, res) => {
-    await guildOf(req, { inviteRights: true });
-    const owner = db.getOwner(req.params.gid);
+  // 権限を付与されている人の一覧と、有効な招待URL(管理者のみ)
+  r.get('/api/guilds/:gid/members', wrap(async (req, res) => {
+    await guildOf(req, { adminOnly: true });
     res.json({
-      owner: owner && { userId: owner.user_id, name: owner.username },
-      editors: db.listEditors(req.params.gid).map((e) => ({ userId: e.user_id, name: e.username })),
+      members: db.listMembers(req.params.gid).map((m) => ({ userId: m.user_id, name: m.username, role: m.role, isSelf: m.user_id === req.session.user_id })),
       invites: db.activeInvites(req.params.gid).map((i) => ({
-        code: i.code, url: `${publicUrl}/admin/?invite=${i.code}`, expiresAt: i.expires_at, usesLeft: i.max_uses - i.uses,
+        code: i.code, url: `${publicUrl}/admin/?invite=${i.code}`, role: i.role, expiresAt: i.expires_at, usesLeft: i.max_uses - i.uses,
       })),
     });
   }));
 
   r.post('/api/guilds/:gid/invites', wrap(async (req, res) => {
-    await guildOf(req, { inviteRights: true });
-    if (db.activeInvites(req.params.gid).length >= MAX_INVITES) throw fail(400, `有効な招待リンクは${MAX_INVITES}個までです。不要なものを無効化してください`);
+    await guildOf(req, { adminOnly: true });
+    if (db.activeInvites(req.params.gid).length >= MAX_INVITES) throw fail(400, `有効な招待URLは${MAX_INVITES}個までです。不要なものを無効化してください`);
     const hours = Math.min(Math.max(Number(req.body?.hours) || 24, 1), 24 * 30);
     const maxUses = Math.min(Math.max(Number(req.body?.maxUses) || 1, 1), 20);
+    const role = req.body?.role === 'admin' ? 'admin' : 'editor';
     const code = randomCode();
-    db.createInvite({ code, guildId: req.params.gid, createdBy: req.session.user_id, expiresAt: Date.now() + hours * 3600_000, maxUses });
-    res.json({ url: `${publicUrl}/admin/?invite=${code}` });
+    db.createInvite({ code, guildId: req.params.gid, createdBy: req.session.user_id, expiresAt: Date.now() + hours * 3600_000, maxUses, role });
+    res.json({ url: `${publicUrl}/admin/?invite=${code}`, role });
   }));
 
   r.delete('/api/guilds/:gid/invites/:code', wrap(async (req, res) => {
-    await guildOf(req, { inviteRights: true });
+    await guildOf(req, { adminOnly: true });
     res.json({ ok: !!db.deleteInvite(req.params.gid, req.params.code) });
   }));
 
-  r.delete('/api/guilds/:gid/editors/:userId', wrap(async (req, res) => {
-    await guildOf(req, { inviteRights: true });
-    res.json({ ok: !!db.removeEditor(req.params.gid, req.params.userId) });
+  // 付与した権限の変更(管理者 ⇔ 編集者)と取り消し。自分自身の権限は、締め出されないよう変更・取り消しできない
+  r.put('/api/guilds/:gid/members/:userId', wrap(async (req, res) => {
+    await guildOf(req, { adminOnly: true });
+    if (req.params.userId === req.session.user_id) throw fail(400, '自分自身の権限は変更できません');
+    const role = req.body?.role;
+    if (role !== 'admin' && role !== 'editor') throw fail(400, '権限が不正です');
+    res.json({ ok: !!db.setMemberRole(req.params.gid, req.params.userId, role) });
+  }));
+
+  r.delete('/api/guilds/:gid/members/:userId', wrap(async (req, res) => {
+    await guildOf(req, { adminOnly: true });
+    if (req.params.userId === req.session.user_id) throw fail(400, '自分自身の権限は取り消せません');
+    res.json({ ok: !!db.removeMember(req.params.gid, req.params.userId) });
   }));
 
   r.get('/api/versions', wrap(async (_req, res) => res.json({ versions: await mojangVersions(), loaders: LOADERS, curseforge: cf.enabled() })));
@@ -257,6 +262,18 @@ function mountAdmin(app, { clientId, clientSecret, publicUrl }) {
   }));
 
   r.post('/api/logout', (req, res) => { db.deleteSession(req.session.token); setCookie(res, 'sid', '', 0); res.json({ ok: true }); });
+
+  // 開発者専用ページ。開発者以外(未ログインも含む)には、ページが存在しないように 404 を返す。
+  // ファイルは public/ ではなく private/ に置き、このルートからだけ配信する(静的配信には含めない)
+  const DEV_DIR = path.join(__dirname, '..', 'private', 'dev');
+  const devOnly = (file) => (req, res) => {
+    const sid = cookies(req).sid;
+    const s = sid && db.getSession(sid);
+    if (!s || !DEVELOPERS.has(s.user_id)) return res.status(404).type('text/plain').send('Not found');
+    res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' }).sendFile(path.join(DEV_DIR, file));
+  };
+  r.get('/dev', devOnly('index.html'));
+  r.get('/dev/dev.js', devOnly('dev.js'));
 
   r.use(express.static(path.join(__dirname, '..', 'public', 'admin')));
   app.use('/admin', r);

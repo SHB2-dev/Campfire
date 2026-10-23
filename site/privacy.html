@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>プライバシーポリシー - Packhearth</title>
+<meta name="description" content="Packhearth が取得する情報、Google アナリティクスなどの外部サービスへの送信、データの扱いについて。">
+<meta name="robots" content="index,follow">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><span class="logo">⛏</span> Packhearth</a>
+  <nav><a href="/">トップへ</a></nav>
+</header>
+
+<main class="doc">
+  <h1>プライバシーポリシー</h1>
+  <p class="muted">Packhearth(ランチャーと、このサイト・管理サイト)が、どんな情報を扱うかをまとめています。</p>
+
+  <h2>1. ランチャーと管理サイトで扱う情報</h2>
+  <ul>
+    <li><b>Discord ログイン</b>: 「identify」と「guilds」の権限だけを使い、ユーザー名と、参加している Discord サーバーの一覧を取得します。目的は、あなたが参加しているサーバーに登録されたパックだけを表示することです。Discord のアクセストークンは、サーバー側で期限が切れるまで保持し、パスワードは取得しません。</li>
+    <li><b>Microsoft(Minecraft)ログイン</b>: あなたのパソコンの中でだけ扱います。更新用のトークンは、OS の資格情報の保管庫で暗号化して保存します。Packhearth のサーバーには送りません。</li>
+    <li><b>利用状況の集計</b>: 「どの Discord サーバーを、何人が使っているか」を数えるために、ユーザーIDを<b>ハッシュ化</b>(元に戻せない形)して保存します。ユーザー名やIDそのものは、この集計には残りません。結果は、数字だけで、開発者が確認します。</li>
+    <li><b>管理サイト</b>: ログイン状態を保つための Cookie(セッション)を使います。</li>
+  </ul>
+
+  <h2>2. 外部サービスへの送信</h2>
+  <table>
+    <thead><tr><th>送信先</th><th>目的</th><th>送られる情報</th></tr></thead>
+    <tbody>
+      <tr><td>Discord</td><td>ログイン、参加サーバーの取得</td><td>ログインに必要な認証情報</td></tr>
+      <tr><td>Microsoft / Mojang</td><td>Minecraft のログインとゲームの取得</td><td>ログインに必要な認証情報、ゲーム本体のダウンロード要求</td></tr>
+      <tr><td>Modrinth / CurseForge / FTB</td><td>MOD パックの情報と、MOD の取得</td><td>パックの識別子(通常のダウンロード要求)</td></tr>
+      <tr><td>GitHub</td><td>ランチャーの配布と自動更新、ダウンロード数の表示</td><td>通常のダウンロード要求</td></tr>
+      <tr><td>mclo.gs</td><td>ログの共有(<b>あなたが「ログをアップロード」を押したときだけ</b>)</td><td>選んだログの内容。アクセストークンとパソコンのユーザー名は伏せて送ります。URLを知っている人は誰でも見られます</td></tr>
+      <tr><td>Google LLC(Google アナリティクス)</td><td>このサイトのアクセス状況の集計と、改善(<b>同意した場合のみ</b>)</td><td>閲覧したページ、ボタンのクリック、ブラウザや端末の情報、おおよその地域、Cookie の識別子など</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Google アナリティクスについて</h2>
+  <p>このサイト(紹介サイト)では、同意いただいた方に限り、Google アナリティクスでアクセス状況を集計します。同意前は、Google への情報送信も、Cookie の作成もしません。管理サイトとランチャーには、アクセス解析を入れていません。</p>
+  <ul>
+    <li>IP アドレスは匿名化して送ります。</li>
+    <li>同意は、このブラウザにだけ保存されます。いつでも、ページ下部の「アクセス解析の設定」から変更できます。</li>
+    <li>Google による情報の扱いは、<a href="https://policies.google.com/technologies/partner-sites?hl=ja" rel="noopener">Google のポリシー</a>をご覧ください。</li>
+    <li>ブラウザの設定や、<a href="https://tools.google.com/dlpage/gaoptout?hl=ja" rel="noopener">Google アナリティクス オプトアウト アドオン</a>でも、収集を止められます。</li>
+  </ul>
+
+  <h2>4. 公開している数字</h2>
+  <p>トップページには、「ダウンロード数」「連携している Discord サーバー数」「登録されたサーバー数」を表示しています。これらは集計した数字だけで、個人や個別のサーバーが分かる情報は含みません。ダウンロード数は GitHub のリリースの集計で、自動更新によるダウンロードも含みます。</p>
+
+  <h2>5. お問い合わせ</h2>
+  <p>ご質問や、情報の削除のご希望は、<a href="https://github.com/SHB2-dev/Packhearth/issues" rel="noopener">GitHub の Issues</a> までお願いします。</p>
+
+  <p class="muted small">Packhearth は、Mojang や Microsoft とは無関係の非公式ツールです。「Minecraft」は Mojang AB の商標です。</p>
+</main>
+
+<footer>
+  <p><a href="/">トップ</a> · <a href="#" data-analytics-settings hidden>アクセス解析の設定</a></p>
+</footer>
+<script src="analytics.js"></script>
+</body>
+</html>

@@ -1,50 +1,151 @@
-:root{color-scheme:dark}
+:root{
+  color-scheme:dark;
+  --bg:#12141a;--surface:#1a1d26;--surface2:#212533;--line:#2b3041;--line2:#383e52;
+  --text:#e8eaf2;--muted:#8d95ab;--accent:#4f8cff;--accent-d:#3b73dd;--good:#2fb872;--warn:#e0a82e;--danger:#e5484d;
+  --radius:12px;
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui,"Yu Gothic UI",sans-serif;background:#14161c;color:#e6e8ee}
-header{display:flex;gap:12px;align-items:center;padding:12px 20px;background:#1b1e27}
-header #me{margin-left:auto;color:#8b93a7}
-.brand{font-weight:800;color:#e6e8ee;text-decoration:none}
-.navlink{color:#8b93a7;text-decoration:none;font-size:14px;margin-left:12px}
-.navlink:hover{color:#e6e8ee}
-.btn.ghost{background:#2c3140}
-h1{font-size:20px;margin:0 0 12px}
-h2{font-size:16px}
-.muted{color:#8b93a7}
-.err{color:#ff7b7b;min-height:1.2em}
-.box{max-width:560px;margin:64px auto;padding:0 20px}
-/* Discord サーバーの一覧は、縦1列ではなく、上に横並び(入りきらなければ折り返す) */
-.wrap{display:flex;flex-direction:column;gap:20px;padding:20px;max-width:1000px;margin:0 auto}
-nav{display:flex;flex-direction:column;gap:16px}
-nav>div{display:flex;flex-direction:column;gap:6px}
-/* アイコンを上、名前を下にしたタイルを、グリッドで敷き詰める(入りきらなければスクロール) */
-#guilds,#claimList{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px!important;max-height:210px;overflow-y:auto;padding:2px}
-nav h3{font-size:13px;margin:0;color:#8b93a7}
-nav .small{font-size:12px;margin:0}
-section{flex:1;min-width:0}
-button,.btn{padding:9px 14px;border:0;border-radius:6px;background:#4f8cff;color:#fff;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;font-size:14px}
-button.ghost{background:#2c3140}
-button.danger{background:#7a2c35}
-button[hidden],[hidden]{display:none!important}
-nav .g{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;margin:0;padding:10px 6px;border-radius:10px;background:#1b1e27;font-weight:400;color:#cfd5e6;border:2px solid transparent}
-nav .g:hover{background:#242938}
-nav .g.on{border-color:#4f8cff;background:#212738;color:#fff}
-nav .gicon{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none}
-nav .gicon.ph{display:grid;place-items:center;background:#3a4157;color:#fff;font-weight:700;font-size:17px}
-nav .gname{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-.item{display:flex;gap:8px;align-items:center;padding:10px;background:#1b1e27;border-radius:8px;margin-bottom:8px}
-.item>div{flex:1;display:flex;flex-direction:column;min-width:0}
-form{margin-top:20px;padding:16px;background:#1b1e27;border-radius:8px;display:flex;flex-direction:column;gap:12px}
-label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:#aab2c5}
-label.row{flex-direction:row;align-items:center;gap:8px}
-input:not([type=checkbox]),select{padding:8px;border-radius:6px;border:1px solid #2c3140;background:#14161c;color:inherit;font-size:14px}
-textarea{padding:8px;border-radius:6px;border:1px solid #2c3140;background:#14161c;color:inherit;font:inherit;font-size:14px;resize:vertical}
-.small{font-size:12px;margin:0}
-#history .h{font-size:12px;color:#aab2c5;padding:6px 0;border-top:1px solid #2c3140;word-break:break-all}
-#history .h b{color:#e6e8ee}
-.good{color:#5fd9a0}.bad{color:#ff7b7b}
-.ok{color:#5fd9a0}
-.tag{font-size:11px;padding:2px 8px;border-radius:10px;background:#2c3140;color:#aab2c5}
-.team{margin-top:28px;padding:16px;background:#1b1e27;border-radius:8px}
-.team h2{margin-top:0}
-.inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
-.item code{font-size:12px;word-break:break-all;color:#aab2c5}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 system-ui,"Yu Gothic UI","Hiragino Sans",sans-serif}
+a{color:var(--accent)}
+h1,h2,h3{margin:0;line-height:1.3}
+h1{font-size:22px}
+h2{font-size:17px}
+h3{font-size:15px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+[hidden]{display:none!important}
+
+/* ---- 上部バー ---- */
+.bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;padding:10px max(16px,calc((100vw - 1080px)/2));background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{font-weight:800;font-size:17px;color:var(--text);text-decoration:none}
+.brand-sub{color:var(--muted);font-size:14px}
+.spacer{flex:1}
+.me{color:var(--muted);font-size:14px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+main{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+
+/* ---- ボタン・入力 ---- */
+.btn,button{font:inherit}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:1px solid transparent;border-radius:9px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;text-decoration:none;line-height:1.2}
+.btn:hover{background:var(--accent-d)}
+.btn.ghost{background:transparent;border-color:var(--line2);color:var(--text)}
+.btn.ghost:hover{background:var(--surface2)}
+.btn.danger{background:transparent;border-color:#5a2a2e;color:#ff8b8f}
+.btn.danger:hover{background:#3a1d20}
+.btn.sm{padding:6px 11px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:default}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label{display:flex;flex-direction:column;gap:5px;font-size:14px;color:#c4c9d8}
+label small{color:var(--muted);font-weight:400;font-size:12px}
+label.check{flex-direction:row;align-items:center;gap:8px}
+input:not([type=checkbox]),select,textarea{width:100%;padding:9px 11px;border-radius:8px;border:1px solid var(--line2);background:#14161d;color:var(--text);font:inherit}
+textarea{resize:vertical}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent)}
+.inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.help{margin:0;color:var(--muted);font-size:13px}
+.err{color:var(--danger);margin:0;flex:1;min-height:1.2em}
+.good{color:var(--good)}
+.bad{color:var(--danger)}
+
+/* ---- カード・バナー ---- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.card.inner{background:var(--surface2);border-color:var(--line);margin-top:16px}
+.card.inner h3{margin-bottom:12px}
+.banner{margin:0 0 16px;padding:11px 14px;border-radius:9px;background:var(--surface2);border:1px solid var(--line2)}
+.banner.ok{border-color:#1f6b46;background:#15271f;color:#7fe0ae}
+.banner.err{border-color:#6b2a2e;background:#2a1a1c;color:#ff9a9d}
+.empty{margin:24px 0;padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line2);border-radius:var(--radius)}
+.section-title{margin:0 0 12px;font-size:15px;color:var(--muted);font-weight:600}
+.login{max-width:560px;margin:56px auto}
+.login h1{margin-bottom:12px}
+.row-actions{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 0}
+
+/* ---- ログイン中のトースト ---- */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;padding:11px 18px;border-radius:10px;background:#0c0e13;border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:90vw}
+.toast.good{border-color:#1f6b46}
+.toast.bad{border-color:#6b2a2e}
+
+/* ---- Discord サーバーのタイル ---- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;max-height:232px;overflow-y:auto;padding:2px;margin-bottom:20px}
+.g{display:flex;flex-direction:column;align-items:center;gap:7px;min-width:0;padding:12px 8px;border-radius:10px;background:var(--surface);border:2px solid transparent;color:#cfd5e6;cursor:pointer;font:inherit}
+.g:hover{background:var(--surface2)}
+.g.on{border-color:var(--accent);background:#1e2740;color:#fff}
+.gicon{width:56px;height:56px;border-radius:12px;object-fit:cover;flex:none}
+.gicon.ph{display:grid;place-items:center;background:#3a4157;color:#fff;font-weight:700;font-size:17px}
+.gname{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.badge,.tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;background:var(--line);color:#c4c9d8;line-height:1.7}
+.badge.admin{background:#1c3b2c;color:#7fe0ae}
+.badge.editor{background:#2a2f4a;color:#a9b8ff}
+.tag{font-size:11px}
+
+/* ---- 選んだサーバーのパネル ---- */
+.panel-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+.panel-head .gicon{width:48px;height:48px}
+.panel-title{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:14px 0 18px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 14px;color:var(--muted);font:inherit;cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+
+/* ---- サーバーのカード ---- */
+.cards{display:flex;flex-direction:column;gap:10px}
+.srv{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--surface2);border:1px solid var(--line);border-radius:10px}
+.srv-main{flex:1;min-width:0}
+.srv-name{font-size:16px;font-weight:700}
+.srv-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{display:inline-block;padding:1px 9px;border-radius:6px;font-size:12px;background:var(--line);color:#c4c9d8}
+.chip.pack{background:#1e2a4a;color:#a9c3ff}
+.chip.pin{background:#3a2f12;color:#f0cd7a}
+.srv-addr{margin-top:6px;color:var(--muted);font-size:13px;word-break:break-all}
+.srv-actions{display:flex;gap:8px;flex:none}
+
+/* ---- フォーム ---- */
+.form{display:flex;flex-direction:column;gap:18px}
+.form-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.group{margin:0;padding:16px 18px 18px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);display:flex;flex-direction:column;gap:14px;min-width:0}
+.group legend{padding:0 8px;font-weight:700;font-size:14px;color:var(--text)}
+.sub{display:flex;flex-direction:column;gap:12px;padding-top:2px}
+.actions{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;padding:14px 0;background:linear-gradient(to top,var(--surface) 75%,transparent)}
+details{border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+summary{cursor:pointer;color:var(--muted);font-size:13px}
+#history .h{font-size:12px;color:#aab2c5;padding:6px 0;border-top:1px solid var(--line);word-break:break-all}
+#history .h b{color:var(--text)}
+
+/* ---- メンバーと招待 ---- */
+.grid-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end}
+.rows{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surface);border:1px solid var(--line);border-radius:9px;flex-wrap:wrap}
+.row-main{flex:1;min-width:200px;display:flex;flex-direction:column;gap:3px}
+.row-main code{font-size:12px;color:#aab2c5;word-break:break-all}
+.row select{width:auto;padding:6px 9px}
+.you{color:var(--muted);font-size:12px}
+
+/* ---- 開発者ダッシュボード ---- */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.stat{padding:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
+.stat b{display:block;font-size:30px;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat span{display:block;color:var(--muted);font-size:13px;margin-top:4px}
+.stat small{display:block;color:var(--muted);font-size:12px;margin-top:6px}
+.dev-section{margin-top:22px}
+.dev-section h3{margin-bottom:10px}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:grid;grid-template-columns:78px 1fr 64px;gap:10px;align-items:center;font-size:13px}
+.bar-track{height:10px;background:var(--line);border-radius:999px;overflow:hidden}
+.bar-fill{height:100%;background:var(--accent);border-radius:999px}
+.bar-row .num{text-align:right;font-variant-numeric:tabular-nums}
+.bar-sub{grid-column:2 / 4;color:var(--muted);font-size:12px;margin-top:-4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px;background:var(--surface2)}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.gcell{display:flex;align-items:center;gap:10px}
+.gcell .gicon{width:30px;height:30px;border-radius:8px;font-size:11px}
+
+@media(max-width:720px){
+  .srv{flex-direction:column;align-items:stretch}
+  .srv-actions{justify-content:flex-end}
+  .me{display:none}
+}

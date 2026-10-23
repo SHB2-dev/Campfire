@@ -31,3 +31,16 @@ fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
     document.getElementById('ver').textContent = 'リリースページから最新版を入手できます';
     document.getElementById('dl-main').href = RELEASES;
   });
+
+// 公開用の集計(ダウンロード数・連携サーバー数)。取得できなければ、表示しない
+fetch('/api/stats')
+  .then((r) => (r.ok ? r.json() : Promise.reject()))
+  .then((s) => {
+    const fmt = (n) => Number(n).toLocaleString('ja-JP');
+    document.getElementById('st-guilds').textContent = fmt(s.guilds);
+    document.getElementById('st-servers').textContent = fmt(s.servers);
+    if (typeof s.downloads === 'number') document.getElementById('st-dl').textContent = fmt(s.downloads);
+    else document.getElementById('st-dl-box').hidden = true;
+    document.getElementById('stats').hidden = false;
+  })
+  .catch(() => { /* バックエンド以外(静的な確認など)では表示しない */ });

@@ -3,6 +3,7 @@ const db = require('./db');
 const dc = require('./discord');
 const { serialize } = require('./servers');
 const curseforge = require('./curseforge');
+const { loadDownloads } = require('./downloads');
 
 // 簡易レート制限(IPごと 1分に120回)
 const hits = new Map();
@@ -35,6 +36,14 @@ function createApi({ clientId, clientSecret, publicUrl, allowedRedirects, extra 
   app.use(rateLimit);
   app.use(express.json({ limit: '64kb' })); // CurseForge の大きなパック(fileId 数百件)に対応
 
+  // ホームページに表示する公開用の集計。数字だけで、個人や個別のサーバーが分かる情報は含めない(5分キャッシュ可)
+  app.get('/api/stats', wrap(async (_req, res) => {
+    const t = db.publicTotals();
+    const d = await loadDownloads().catch(() => null);
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ downloads: d ? d.total : null, guilds: t.guilds, servers: t.servers });
+  }));
+
   app.get('/api/config', (_req, res) => res.json({ clientId, adminUrl: `${publicUrl}/admin/` }));
 
   // ランチャーが受け取った OAuth code を交換してセッショントークンを発行
@@ -58,7 +67,9 @@ function createApi({ clientId, clientSecret, publicUrl, allowedRedirects, extra 
       if (!groups.has(g.id)) groups.set(g.id, { guild: dc.publicGuild(g), canManage: dc.canManage(g), servers: [] });
       groups.get(g.id).servers.push(serialize(row));
     }
-    res.json({ groups: [...groups.values()] });
+    const list = [...groups.values()];
+    db.recordSeen(req.session.user_id, list.map((g) => g.guild)); // 利用状況の集計(IDはハッシュ化して保存)
+    res.json({ groups: list });
   }));
 
   // 起動時の最新情報確認用

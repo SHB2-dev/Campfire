@@ -120,6 +120,26 @@
             "field_type": "text"
         },
         {
+            "name": "Developer Discord IDs",
+            "description": "開発者専用ページ(/admin/dev)を見られる人の Discord ユーザーID(数字)。複数ならカンマ区切り。Discord の設定で「開発者モード」をオンにして、自分のアイコンを右クリック →「ユーザーIDをコピー」で調べられます。空欄だと、誰も見られません",
+            "env_variable": "DEVELOPER_DISCORD_IDS",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:200|regex:/^[0-9, ]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Google Analytics Measurement ID",
+            "description": "任意。Google アナリティクス(GA4)の測定ID(G-XXXXXXXXXX)。設定すると、紹介サイト(トップページ)にだけ、訪問者が同意した場合に限って、アクセス解析が入ります。空欄なら、何も入りません",
+            "env_variable": "GA_MEASUREMENT_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:30|regex:/^(G-[A-Za-z0-9]{4,20})?$/",
+            "field_type": "text"
+        },
+        {
             "name": "Allowed Redirects",
             "description": "ランチャーのOAuthリダイレクトURI(カンマ区切り)。通常は変更不要",
             "env_variable": "ALLOWED_REDIRECTS",

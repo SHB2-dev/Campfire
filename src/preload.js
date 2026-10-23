@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   removeServer: call('remove-server'),
   loginMicrosoft: call('login-microsoft'),
   loginOffline: call('login-offline'),
+  logoutMinecraft: call('logout-minecraft'),
   play: call('play'),
   openFolder: call('open-folder'),
   openReleases: call('open-releases'),

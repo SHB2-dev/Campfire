@@ -11,6 +11,7 @@ const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
 const { setupUpdater, openReleases, installUpdate } = require('./updater');
 const { loaderJvmArgs } = require('./jvmargs');
+const { syncServerList } = require('./serverlist');
 const { ping: mcping, parseAddress } = require('./mcping');
 
 // バックエンドURL: 環境変数 > src/config.json(ビルド時に配布用URLへ書き換える)
@@ -40,8 +41,11 @@ const defaultSettings = () => ({
   memoryMax: `${Math.max(2, Math.min(4, Math.floor(os.totalmem() / gib / 2)))}G`,
   memoryMin: '1G',
   notifyUpdates: true, // バージョンアップを OS の通知(通知センター)にも出す
+  addToServerList: true, // マイクラ内のサーバー一覧(servers.dat)にも追加する
   discord: null,
   trusted: [],
+  ms: null, // Microsoft ログインの保存(暗号化した更新用トークン)
+  offlineName: null, // オフラインモードの名前
   myList: [], // [{ id, guild:{id,name,icon}, entry }]
 });
 function loadSettings() {
@@ -153,8 +157,12 @@ async function discordLogin() {
 // ---- IPC ----
 ipcMain.handle('init', () => {
   const s = loadSettings();
+  // 保存してあるログインがあれば、画面を開いたあとに裏で復元して、できたら画面に知らせる
+  const restoring = !mcAccount && !!(s.offlineName || s.ms);
+  if (restoring) restoreMinecraft().then((a) => send('account', a));
   return {
-    settings: { javaPath: s.javaPath, memoryMax: s.memoryMax, notifyUpdates: s.notifyUpdates !== false },
+    restoring,
+    settings: { javaPath: s.javaPath, memoryMax: s.memoryMax, notifyUpdates: s.notifyUpdates !== false, addToServerList: s.addToServerList !== false },
     totalMemGb: Math.floor(os.totalmem() / gib),
     discord: s.discord?.user || null,
     account: mcAccount && { name: mcAccount.name },
@@ -163,7 +171,7 @@ ipcMain.handle('init', () => {
 });
 
 ipcMain.handle('save-settings', (_e, s) => {
-  saveSettings({ javaPath: String(s.javaPath || ''), memoryMax: String(s.memoryMax || '4G'), notifyUpdates: s.notifyUpdates !== false });
+  saveSettings({ javaPath: String(s.javaPath || ''), memoryMax: String(s.memoryMax || '4G'), notifyUpdates: s.notifyUpdates !== false, addToServerList: s.addToServerList !== false });
   return true;
 });
 
@@ -224,16 +232,71 @@ ipcMain.handle('remove-server', (_e, id) => {
   return myList;
 });
 
-ipcMain.handle('login-microsoft', async () => {
+// ---- Minecraft アカウント(Microsoft / オフライン)のログイン保存と復元 ----
+// Microsoft の更新用トークンは強い権限を持つので、OS の資格情報の保管庫で暗号化できるときだけ保存する
+let mcObj = null; // msmc の Minecraft オブジェクト(アクセストークンの更新に使う)
+
+function persistMicrosoft(xbox, name) {
+  if (!safeStorage.isEncryptionAvailable()) {
+    log('このパソコンでは、ログイン情報を安全に保存できないため、次回の起動時はもう一度ログインが必要です');
+    return;
+  }
+  saveSettings({ ms: { token: storeToken(xbox.save()), name }, offlineName: null });
+}
+
+async function loginMicrosoftInteractive() {
   const xbox = await new Auth('select_account').launch('electron');
-  mcAccount = (await xbox.getMinecraft()).mclc();
+  mcObj = await xbox.getMinecraft();
+  mcAccount = mcObj.mclc();
+  persistMicrosoft(xbox, mcAccount.name);
   return { name: mcAccount.name };
-});
+}
+
+// 起動時に、保存してあるログインを復元する(オフラインは即時、Microsoft は通信して更新する)
+async function restoreMinecraft() {
+  if (mcAccount) return { name: mcAccount.name };
+  const s = loadSettings();
+  if (s.offlineName) {
+    mcAccount = Authenticator.getAuth(s.offlineName);
+    return { name: s.offlineName };
+  }
+  const refreshToken = s.ms ? readToken({ token: s.ms.token }) : null;
+  if (!refreshToken) return null;
+  try {
+    const xbox = await new Auth('select_account').refresh(refreshToken);
+    mcObj = await xbox.getMinecraft();
+    mcAccount = mcObj.mclc();
+    persistMicrosoft(xbox, mcAccount.name); // 更新後の新しいトークンを保存し直す
+    return { name: mcAccount.name };
+  } catch (e) {
+    log(`Minecraft のログインを自動で復元できませんでした。もう一度ログインしてください (${e.message || e})`);
+    return null;
+  }
+}
+
+// ゲームを起動する直前に、アクセストークン(有効期間は約1日)が切れていれば更新する
+async function ensureMinecraftToken() {
+  if (mcObj && !mcObj.validate()) {
+    mcObj = await mcObj.refresh(true);
+    mcAccount = mcObj.mclc();
+  }
+}
+
+ipcMain.handle('login-microsoft', () => loginMicrosoftInteractive());
 
 ipcMain.handle('login-offline', (_e, name) => {
   if (!/^\w{3,16}$/.test(name)) throw new Error('名前は3〜16文字の英数字/アンダースコア');
   mcAccount = Authenticator.getAuth(name);
+  mcObj = null;
+  saveSettings({ offlineName: name, ms: null });
   return { name };
+});
+
+ipcMain.handle('logout-minecraft', () => {
+  mcAccount = null;
+  mcObj = null;
+  saveSettings({ ms: null, offlineName: null });
+  return true;
 });
 
 ipcMain.handle('open-folder', () => shell.openPath(dataDir()));
@@ -334,6 +397,7 @@ async function confirmTrust(entry, settings) {
 
 ipcMain.handle('play', async (_e, id) => {
   if (!mcAccount) throw new Error('先に Minecraft アカウントでログインしてください');
+  try { await ensureMinecraftToken(); } catch { throw new Error('Minecraft のログインの有効期限が切れました。もう一度ログインしてください'); }
   const settings = loadSettings();
   const item = settings.myList.find((i) => i.id === id);
   if (!item) throw new Error('サーバーが一覧にありません');
@@ -388,6 +452,16 @@ ipcMain.handle('play', async (_e, id) => {
     ? installed.customId : null;
   const custom = lockedLoader || await ensureLoader(resolved, root, javaBins.java, log, onProgress);
   if (custom) patchInstalled(gameDir, { customId: custom });
+
+  // マイクラ内の「マルチプレイ」のサーバー一覧にも、このサーバー(と予備アドレス)を追加しておく。
+  // 自動接続で起動すると、マイクラ自身が「hidden」の項目を作って一覧に出なくなるので、それも表示に直す
+  if (settings.addToServerList !== false) {
+    const addrs = [entry.address, ...(entry.altAddresses || [])].filter((a) => a && parseAddress(a));
+    const base = `${item.guild.name} / ${entry.name}`.slice(0, 60);
+    const r = syncServerList(gameDir, addrs.map((ip, i) => ({ ip, name: i === 0 ? base : `${base} (予備${i})` })));
+    if (r.error) log(`マイクラ内のサーバー一覧への追加をスキップしました: ${r.error}`);
+    else if (r.changed) log('マイクラ内のサーバー一覧(マルチプレイ)に追加しました');
+  }
 
   const launcher = new Client();
   // Minecraft 本体のダウンロードは進捗バーに任せ、ログには出さない

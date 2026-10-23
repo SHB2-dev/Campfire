@@ -56,7 +56,13 @@ function describe(s) {
   return kinds[s.type] + loader + pinned + (s.address ? ` · ${s.address}` : '');
 }
 
-function setAccount(a) { account = a; $('acct').textContent = a.name; refreshPlay(); }
+function setAccount(a) {
+  account = a || null;
+  $('acct').textContent = account ? account.name : '未ログイン';
+  $('ms').hidden = !!account;
+  $('msout').hidden = !account;
+  refreshPlay();
+}
 function setDiscord(u) {
   discord = u;
   $('dc').textContent = u ? u.name : '未ログイン';
@@ -184,14 +190,17 @@ const reload = guard(async () => {
   defaultMemory = init.settings.memoryMax;
   totalMemGb = init.totalMemGb || totalMemGb;
   $('notify').checked = init.settings.notifyUpdates;
+  $('addList').checked = init.settings.addToServerList;
   setDiscord(init.discord);
   if (init.account) setAccount(init.account);
+  else if (init.restoring) $('acct').textContent = 'ログイン情報を復元中...'; // 保存してあるログインを、裏で復元している
   myList = init.myList;
   render();
   reload();
 })();
 
 api.on('log', addLog);
+api.on('account', (a) => setAccount(a)); // 保存してあったログインの復元が終わった(失敗なら null)
 // ランチャーのバージョンアップの案内バー。状態ごとにボタンの役割が変わる
 //   manual: ダウンロードページを開く / ready: 今すぐ再起動して更新 / downloading: ボタンなし
 let updateMode = null;
@@ -242,9 +251,10 @@ $('reload').onclick = reload;
 $('dcin').onclick = guard(async () => { setDiscord(await api.loginDiscord()); await reload(); });
 $('dcout').onclick = guard(async () => { await api.logoutDiscord(); setDiscord(null); groups = []; render(); });
 $('ms').onclick = guard(async () => setAccount(await api.loginMicrosoft()));
+$('msout').onclick = guard(async () => { await api.logoutMinecraft(); setAccount(null); });
 $('off').onclick = guard(async () => setAccount(await api.loginOffline($('offname').value)));
 $('save').onclick = guard(async () => {
-  await api.saveSettings({ javaPath: $('java').value.trim(), memoryMax: $('max').value.trim(), notifyUpdates: $('notify').checked });
+  await api.saveSettings({ javaPath: $('java').value.trim(), memoryMax: $('max').value.trim(), notifyUpdates: $('notify').checked, addToServerList: $('addList').checked });
   defaultMemory = $('max').value.trim() || '4G';
   render(); // 各サーバーの「既定 (○G)」の表示を更新
   addLog('設定を保存しました');

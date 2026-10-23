@@ -56,9 +56,9 @@ function renderRail() {
   const rail = $('guilds');
   rail.replaceChildren();
   for (const g of groups) {
-    const b = el('button', `rail-btn${view === g.guild.id ? ' on' : ''}`);
+    const b = el('button', `chip${view === g.guild.id ? ' on' : ''}`);
     b.title = g.guild.name;
-    b.append(avatar(g.guild, 'av'));
+    b.append(avatar(g.guild, 'av'), el('span', null, g.guild.name));
     b.onclick = () => { view = g.guild.id; render(); };
     rail.append(b);
   }

@@ -7,12 +7,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav id="rail" aria-label="Discordサーバー">
-  <button id="home" class="rail-btn on" title="マイリスト">★</button>
-  <div id="guilds"></div>
-  <button id="reload" class="rail-btn" title="更新">⟳</button>
-</nav>
-
 <aside>
   <h1>Packhearth</h1>
   <section>
@@ -45,6 +39,11 @@
     <span id="updateText"></span>
     <button id="updateBtn" class="sm" hidden>ダウンロードページを開く</button>
   </div>
+  <nav class="guildbar" aria-label="Discordサーバー">
+    <button id="home" class="chip on" title="追加したサーバーの一覧">★ マイリスト</button>
+    <span id="guilds"></span>
+    <button id="reload" class="chip" title="一覧を更新">⟳ 更新</button>
+  </nav>
   <div class="head"><h2 id="title">マイリスト</h2></div>
   <div id="view" class="view"></div>
   <pre id="log"></pre>

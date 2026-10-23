@@ -1,9 +1,13 @@
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font-family:system-ui,"Yu Gothic UI","Hiragino Sans",sans-serif;background:#14161c;color:#e6e8ee}
-#rail{width:72px;background:#0e1014;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;overflow-y:auto}
-#guilds{display:flex;flex-direction:column;gap:8px;flex:1;align-items:center}
-.rail-btn{width:48px;height:48px;padding:0;margin:0;border-radius:50%;background:#2c3140;font-size:20px;display:grid;place-items:center;overflow:hidden;border:2px solid transparent}
-.rail-btn.on{border-color:#4f8cff;border-radius:16px}
+/* Discord サーバー: 縦1列ではなく、横に並べて入りきらなければ折り返す */
+.guildbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;align-content:flex-start;max-height:96px;overflow-y:auto;padding:2px}
+#guilds{display:contents}
+.chip{display:inline-flex;align-items:center;gap:8px;max-width:240px;padding:6px 14px 6px 8px;margin:0;border-radius:999px;background:#2c3140;font-weight:500;border:2px solid transparent;white-space:nowrap}
+#home.chip,#reload.chip{padding-left:14px}
+.chip span{overflow:hidden;text-overflow:ellipsis}
+.chip.on{border-color:#4f8cff;background:#212738}
+.chip .av{width:26px;height:26px;font-size:12px}
 .av{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none}
 .ph{display:grid;place-items:center;background:#3a4157;font-weight:700}
 aside{width:250px;padding:18px;background:#1b1e27;overflow:auto}

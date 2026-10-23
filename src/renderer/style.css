@@ -40,6 +40,8 @@ details{margin-top:12px;font-size:13px}
 .update[hidden]{display:none}
 .update button{margin:0}
 .ver{font-size:12px}
+label.check{display:flex;align-items:center;gap:8px;color:#aab2c5}
+label.check input{width:auto;margin:0}
 pre{height:120px;margin:0;padding:12px;background:#0e1014;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
 .bar{height:6px;background:#2c3140;border-radius:3px;overflow:hidden}
 #fill{height:100%;width:0;background:#4f8cff;transition:width .2s}

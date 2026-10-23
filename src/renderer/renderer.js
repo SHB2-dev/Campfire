@@ -148,6 +148,7 @@ const reload = guard(async () => {
   const init = await api.init();
   $('java').value = init.settings.javaPath;
   $('max').value = init.settings.memoryMax;
+  $('notify').checked = init.settings.notifyUpdates;
   setDiscord(init.discord);
   if (init.account) setAccount(init.account);
   myList = init.myList;
@@ -156,14 +157,32 @@ const reload = guard(async () => {
 })();
 
 api.on('log', addLog);
+// ランチャーのバージョンアップの案内バー。状態ごとにボタンの役割が変わる
+//   manual: ダウンロードページを開く / ready: 今すぐ再起動して更新 / downloading: ボタンなし
+let updateMode = null;
 api.on('update', (u) => {
   $('update').hidden = false;
-  $('updateText').textContent = u.ready
-    ? `新しいバージョン ${u.version} の準備ができました。終了時に自動で更新されます`
-    : `新しいバージョン ${u.version} があります`;
-  $('updateBtn').hidden = !u.manual;
+  const btn = $('updateBtn');
+  if (u.ready) {
+    updateMode = 'install';
+    $('updateText').textContent = `新しいバージョン ${u.version} の準備ができました(終了時にも自動で更新されます)`;
+    btn.textContent = '今すぐ再起動して更新';
+    btn.hidden = false;
+  } else if (u.manual) {
+    updateMode = 'releases';
+    $('updateText').textContent = `新しいバージョン ${u.version} があります`;
+    btn.textContent = 'ダウンロードページを開く';
+    btn.hidden = false;
+  } else {
+    updateMode = null;
+    $('updateText').textContent = `新しいバージョン ${u.version} をダウンロードしています...`;
+    btn.hidden = true;
+  }
 });
-$('updateBtn').onclick = () => api.openReleases();
+$('updateBtn').onclick = guard(async () => {
+  if (updateMode === 'install') await api.installUpdate();
+  else if (updateMode === 'releases') await api.openReleases();
+});
 api.appVersion().then((v) => { $('ver').textContent = v; });
 // ダウンロードの進捗: 「何を・何%・(件数)」。件数が分からない処理は動いている表示だけ
 function showProgress(p) {
@@ -190,7 +209,7 @@ $('dcout').onclick = guard(async () => { await api.logoutDiscord(); setDiscord(n
 $('ms').onclick = guard(async () => setAccount(await api.loginMicrosoft()));
 $('off').onclick = guard(async () => setAccount(await api.loginOffline($('offname').value)));
 $('save').onclick = guard(async () => {
-  await api.saveSettings({ javaPath: $('java').value.trim(), memoryMax: $('max').value.trim() });
+  await api.saveSettings({ javaPath: $('java').value.trim(), memoryMax: $('max').value.trim(), notifyUpdates: $('notify').checked });
   addLog('設定を保存しました');
 });
 $('folder').onclick = () => api.openFolder();

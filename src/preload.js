@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('api', {
   play: call('play'),
   openFolder: call('open-folder'),
   openReleases: call('open-releases'),
+  installUpdate: call('install-update'),
   ping: call('ping'),
   appVersion: call('app-version'),
   on: (ch, fn) => ipcRenderer.on(ch, (_e, d) => fn(d)),

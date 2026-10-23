@@ -9,7 +9,7 @@ const { Auth } = require('msmc');
 const { resolveEntry, syncFiles, readInstalled, patchInstalled } = require('./packs');
 const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
-const { setupUpdater, openReleases } = require('./updater');
+const { setupUpdater, openReleases, installUpdate } = require('./updater');
 const { ping: mcping, parseAddress } = require('./mcping');
 
 // バックエンドURL: 環境変数 > src/config.json(ビルド時に配布用URLへ書き換える)
@@ -23,6 +23,9 @@ if (app.isPackaged && !BACKEND_URL.startsWith('https://')) {
 }
 const REDIRECT_PORT = 53682; // Discord の OAuth2 Redirects に http://127.0.0.1:53682/callback を登録
 
+// Windows の通知(トースト)に必要。インストーラーの appId(package.json の build.appId)と同じ値にする
+app.setAppUserModelId('dev.shb2.packhearth');
+
 const dataDir = () => path.join(app.getPath('appData'), '.packhearth');
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -35,6 +38,7 @@ const defaultSettings = () => ({
   javaPath: '',
   memoryMax: `${Math.max(2, Math.min(4, Math.floor(os.totalmem() / gib / 2)))}G`,
   memoryMin: '1G',
+  notifyUpdates: true, // バージョンアップを OS の通知(通知センター)にも出す
   discord: null,
   trusted: [],
   myList: [], // [{ id, guild:{id,name,icon}, entry }]
@@ -130,7 +134,7 @@ async function discordLogin() {
 ipcMain.handle('init', () => {
   const s = loadSettings();
   return {
-    settings: { javaPath: s.javaPath, memoryMax: s.memoryMax },
+    settings: { javaPath: s.javaPath, memoryMax: s.memoryMax, notifyUpdates: s.notifyUpdates !== false },
     discord: s.discord?.user || null,
     account: mcAccount && { name: mcAccount.name },
     myList: s.myList,
@@ -138,7 +142,7 @@ ipcMain.handle('init', () => {
 });
 
 ipcMain.handle('save-settings', (_e, s) => {
-  saveSettings({ javaPath: String(s.javaPath || ''), memoryMax: String(s.memoryMax || '4G') });
+  saveSettings({ javaPath: String(s.javaPath || ''), memoryMax: String(s.memoryMax || '4G'), notifyUpdates: s.notifyUpdates !== false });
   return true;
 });
 
@@ -215,6 +219,7 @@ async function pingCached(address) {
 ipcMain.handle('ping', (_e, address) => (parseAddress(address) ? pingCached(String(address)) : { online: false }));
 
 ipcMain.handle('open-releases', () => openReleases());
+ipcMain.handle('install-update', () => installUpdate());
 ipcMain.handle('app-version', () => app.getVersion());
 
 async function confirmTrust(entry, settings) {
@@ -340,6 +345,6 @@ app.whenReady().then(() => {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.webContents.once('did-finish-load', () => setupUpdater({ getWindow: () => win, send, log }));
+  win.webContents.once('did-finish-load', () => setupUpdater({ getWindow: () => win, send, log, isNotifyEnabled: () => loadSettings().notifyUpdates !== false }));
 });
 app.on('window-all-closed', () => app.quit());

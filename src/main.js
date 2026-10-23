@@ -10,6 +10,7 @@ const { resolveEntry, syncFiles, readInstalled, patchInstalled } = require('./pa
 const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
 const { setupUpdater, openReleases, installUpdate } = require('./updater');
+const { loaderJvmArgs } = require('./jvmargs');
 const { ping: mcping, parseAddress } = require('./mcping');
 
 // バックエンドURL: 環境変数 > src/config.json(ビルド時に配布用URLへ書き換える)
@@ -313,6 +314,8 @@ ipcMain.handle('play', async (_e, id) => {
     version: { number: resolved.minecraft, type: 'release', custom },
     memory: { max: settings.memoryMax, min: settings.memoryMin },
     overrides: { gameDirectory: gameDir },
+    // Forge 1.17+ / NeoForge に必要なモジュールパスや --add-opens など(起動ライブラリは自前では付けない)
+    customArgs: custom ? loaderJvmArgs(root, custom) : undefined,
   };
   if (entry.address && entry.autoConnect) {
     // メインのアドレスが落ちていれば、繋がる予備アドレスに切り替える

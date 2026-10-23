@@ -42,7 +42,7 @@ async function validate(body, { curseforge = false } = {}) {
   if (!TYPES.includes(type)) return { error: '種類が不正です' };
 
   const v = {
-    name, description: str(b.description, 300), address, altAddresses, autoConnect: b.autoConnect !== false,
+    name, description: str(b.description, 300), address, altAddresses, autoConnect: b.autoConnect !== false, autoUpdate: b.autoUpdate !== false,
     type, source: '', minecraft: '', loader: 'vanilla', loaderVersion: '',
   };
 
@@ -99,7 +99,7 @@ async function validate(body, { curseforge = false } = {}) {
 
 const serialize = (r) => ({
   id: r.id, guildId: r.guild_id, name: r.name, description: r.description,
-  address: r.address, altAddresses: r.alt_addresses ? r.alt_addresses.split('\n') : [], autoConnect: !!r.auto_connect,
+  address: r.address, altAddresses: r.alt_addresses ? r.alt_addresses.split('\n') : [], autoConnect: !!r.auto_connect, autoUpdate: r.auto_update !== 0,
   type: r.source_type, source: r.source, minecraft: r.minecraft,
   loader: r.loader, loaderVersion: r.loader_version, updatedAt: r.updated_at,
 });

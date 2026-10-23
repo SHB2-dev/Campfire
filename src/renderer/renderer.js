@@ -40,7 +40,8 @@ function describe(s) {
     mrpack: 'MODパック', zip: `MODパック (zip)${s.minecraft ? ' · ' + s.minecraft : ''}`, manifest: 'MODパック',
   };
   const loader = s.type === 'vanilla' && s.loader !== 'vanilla' ? ` / ${s.loader}` : '';
-  return kinds[s.type] + loader + (s.address ? ` · ${s.address}` : '');
+  const pinned = s.type !== 'vanilla' && s.autoUpdate === false ? ' · 更新固定' : '';
+  return kinds[s.type] + loader + pinned + (s.address ? ` · ${s.address}` : '');
 }
 
 function setAccount(a) { account = a; $('acct').textContent = a.name; refreshPlay(); }

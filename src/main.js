@@ -6,7 +6,7 @@ const http = require('http');
 const crypto = require('crypto');
 const { Client, Authenticator } = require('minecraft-launcher-core');
 const { Auth } = require('msmc');
-const { resolveEntry, syncFiles } = require('./packs');
+const { resolveEntry, syncFiles, readInstalled, patchInstalled } = require('./packs');
 const { ensureLoader } = require('./loaders');
 const { componentFor, ensureJava } = require('./java');
 const { setupUpdater, openReleases } = require('./updater');
@@ -257,23 +257,38 @@ ipcMain.handle('play', async (_e, id) => {
   const gameDir = path.join(root, 'instances', `s${entry.id}`);
   fs.mkdirSync(gameDir, { recursive: true });
 
-  log('パックの更新を確認中...');
-  // CurseForge は API キーを持つバックエンド経由で問い合わせる
-  const curseforge = {
-    pack: (slug) => backend(`/api/curseforge/pack?slug=${encodeURIComponent(slug)}`),
-    files: (ids) => backend('/api/curseforge/files', { method: 'POST', body: JSON.stringify({ fileIds: ids }) }),
-  };
-  const resolved = await resolveEntry(entry, path.join(root, 'cache'), log, { curseforge });
   const onProgress = makeProgress();
-  const sync = await syncFiles(resolved, gameDir, log, onProgress);
-  log(sync.downloaded || sync.removed || sync.packChanged
-    ? `更新しました (取得 ${sync.downloaded} / 削除 ${sync.removed})`
-    : '最新の状態です');
+
+  // 管理者が自動更新をオフ(固定)にしているパック: 導入済みなら更新を確認せず、今の版のまま起動する。
+  // まだ入っていない(または別のパックに変わった)場合だけ、そのときの版を導入する
+  const pinned = entry.autoUpdate === false && entry.type !== 'vanilla';
+  const installed = pinned ? readInstalled(gameDir, entry) : null;
+  let resolved;
+  if (installed) {
+    log('管理者がこのパックの自動更新をオフにしているため、更新を確認せずに今の版で起動します');
+    resolved = installed;
+  } else {
+    log(pinned ? '初回の導入です(このパックは管理者が自動更新をオフにしています)' : 'パックの更新を確認中...');
+    // CurseForge は API キーを持つバックエンド経由で問い合わせる
+    const curseforge = {
+      pack: (slug) => backend(`/api/curseforge/pack?slug=${encodeURIComponent(slug)}`),
+      files: (ids) => backend('/api/curseforge/files', { method: 'POST', body: JSON.stringify({ fileIds: ids }) }),
+    };
+    resolved = await resolveEntry(entry, path.join(root, 'cache'), log, { curseforge });
+    const sync = await syncFiles(resolved, gameDir, log, onProgress);
+    log(sync.downloaded || sync.removed || sync.packChanged
+      ? `更新しました (取得 ${sync.downloaded} / 削除 ${sync.removed})`
+      : '最新の状態です');
+  }
 
   const javaBins = settings.javaPath
     ? { java: settings.javaPath, gameJava: settings.javaPath }
     : await ensureJava(await componentFor(resolved.minecraft), root, log, onProgress);
-  const custom = await ensureLoader(resolved, root, javaBins.java, log, onProgress);
+  // 固定中は、前回導入したローダーをそのまま使う(最新のローダーに勝手に変わらないように)
+  const lockedLoader = installed?.customId && fs.existsSync(path.join(root, 'versions', installed.customId, `${installed.customId}.json`))
+    ? installed.customId : null;
+  const custom = lockedLoader || await ensureLoader(resolved, root, javaBins.java, log, onProgress);
+  if (custom) patchInstalled(gameDir, { customId: custom });
 
   const launcher = new Client();
   // Minecraft 本体のダウンロードは進捗バーに任せ、ログには出さない

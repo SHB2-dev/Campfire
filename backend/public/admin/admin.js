@@ -66,6 +66,7 @@ function showForm(s) {
   $('#testResult').textContent = '';
   loadHistory(s);
   form.autoConnect.checked = s ? s.autoConnect : true;
+  form.autoUpdate.checked = s ? s.autoUpdate : true;
   form.type.value = s?.type || 'vanilla';
   form.loader.value = s?.loader || 'vanilla';
   form.loaderVersion.value = s?.loaderVersion || '';
@@ -133,7 +134,8 @@ async function loadServers() {
   for (const s of servers) {
     const row = el('div', 'item');
     const info = el('div');
-    info.append(el('b', null, s.name), el('small', 'muted', `${describe(s)}${s.address ? ' · ' + s.address : ''}`));
+    const pinned = s.type !== 'vanilla' && !s.autoUpdate ? ' · 更新固定' : '';
+    info.append(el('b', null, s.name), el('small', 'muted', `${describe(s)}${s.address ? ' · ' + s.address : ''}${pinned}`));
     const edit = el('button', 'ghost', '編集');
     edit.onclick = () => showForm(s);
     const del = el('button', 'danger', '削除');
@@ -238,7 +240,7 @@ form.onsubmit = async (e) => {
   e.preventDefault();
   const body = {
     name: form.name.value, description: form.description.value, address: form.address.value, altAddresses: form.altAddresses.value,
-    autoConnect: form.autoConnect.checked, type: form.type.value, minecraft: form.minecraft.value,
+    autoConnect: form.autoConnect.checked, autoUpdate: form.autoUpdate.checked, type: form.type.value, minecraft: form.minecraft.value,
     loader: form.loader.value, loaderVersion: form.loaderVersion.value, source: form.source.value,
   };
   try {

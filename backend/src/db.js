@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS address_history (
   guild_id TEXT NOT NULL,
   address TEXT NOT NULL,
   alt_addresses TEXT NOT NULL DEFAULT '',
+  auto_update INTEGER NOT NULL DEFAULT 1,
   changed_by TEXT NOT NULL,
   changed_by_name TEXT NOT NULL,
   changed_at INTEGER NOT NULL
@@ -66,24 +67,27 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 `);
 
-const COLS = 'guild_id,name,description,address,alt_addresses,auto_connect,source_type,source,minecraft,loader,loader_version';
+const COLS = 'guild_id,name,description,address,alt_addresses,auto_connect,auto_update,source_type,source,minecraft,loader,loader_version';
 const joinAlt = (list) => (list || []).join('\n');
-const vals = (s) => [s.guildId, s.name, s.description, s.address, joinAlt(s.altAddresses), s.autoConnect ? 1 : 0, s.type, s.source, s.minecraft, s.loader, s.loaderVersion];
+const vals = (s) => [s.guildId, s.name, s.description, s.address, joinAlt(s.altAddresses), s.autoConnect ? 1 : 0, s.autoUpdate === false ? 0 : 1, s.type, s.source, s.minecraft, s.loader, s.loaderVersion];
 
 // 既存DBへの列追加(新規DBでは何もしない)
 if (!db.prepare('PRAGMA table_info(servers)').all().some((c) => c.name === 'alt_addresses')) {
   db.exec("ALTER TABLE servers ADD COLUMN alt_addresses TEXT NOT NULL DEFAULT ''");
 }
+if (!db.prepare('PRAGMA table_info(servers)').all().some((c) => c.name === 'auto_update')) {
+  db.exec('ALTER TABLE servers ADD COLUMN auto_update INTEGER NOT NULL DEFAULT 1');
+}
 
 module.exports = {
   addServer: (s, userId) =>
-    db.prepare(`INSERT INTO servers (${COLS},created_by,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    db.prepare(`INSERT INTO servers (${COLS},created_by,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(...vals(s), userId, Date.now()).lastInsertRowid,
   updateServer: (id, s) =>
     db.prepare(
-      `UPDATE servers SET name=?,description=?,address=?,alt_addresses=?,auto_connect=?,source_type=?,source=?,minecraft=?,loader=?,loader_version=?,updated_at=?
+      `UPDATE servers SET name=?,description=?,address=?,alt_addresses=?,auto_connect=?,auto_update=?,source_type=?,source=?,minecraft=?,loader=?,loader_version=?,updated_at=?
        WHERE id=? AND guild_id=?`
-    ).run(s.name, s.description, s.address, joinAlt(s.altAddresses), s.autoConnect ? 1 : 0, s.type, s.source, s.minecraft, s.loader, s.loaderVersion, Date.now(), id, s.guildId).changes,
+    ).run(s.name, s.description, s.address, joinAlt(s.altAddresses), s.autoConnect ? 1 : 0, s.autoUpdate === false ? 0 : 1, s.type, s.source, s.minecraft, s.loader, s.loaderVersion, Date.now(), id, s.guildId).changes,
   logAddress: (h) =>
     db.prepare('INSERT INTO address_history (server_id,guild_id,address,alt_addresses,changed_by,changed_by_name,changed_at) VALUES (?,?,?,?,?,?,?)')
       .run(h.serverId, h.guildId, h.address, joinAlt(h.altAddresses), h.userId, h.userName, Date.now()),

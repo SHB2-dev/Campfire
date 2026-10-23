@@ -200,7 +200,15 @@ function assertSafeVersions(r) {
 // サーバー定義(entry)を共通形式に正規化し、パックの最新状態を取得する
 // ctx.curseforge = { pack(slug), files(ids) } はバックエンド経由の CurseForge 中継
 async function resolveEntry(entry, cacheDir, log, ctx = {}) {
-  return assertSafeVersions(await resolveRaw(entry, cacheDir, log, ctx));
+  const resolved = assertSafeVersions(await resolveRaw(entry, cacheDir, log, ctx));
+  resolved.fingerprint = entryFingerprint(entry);
+  return resolved;
+}
+
+// パックの「出どころ」の指紋。管理者が遊び方やバージョンを変えたら変わる
+// (自動更新オフで固定中でも、別のパックに切り替わったときは入れ直すために使う)
+function entryFingerprint(entry) {
+  return sha1Of(Buffer.from(JSON.stringify([entry.type, entry.source, entry.minecraft, entry.loader, entry.loaderVersion])));
 }
 
 async function resolveRaw(entry, cacheDir, log, ctx) {
@@ -453,8 +461,30 @@ async function syncFiles(resolved, gameDir, log, onProgress) {
 
   // 設定ファイル等(overrides / zip の中身)は、パックが更新されたときだけ展開する
   if (packChanged) resolved.applyOverrides?.(gameDir);
-  fs.writeFileSync(path.join(gameDir, STATE_NAME), JSON.stringify({ packHash: resolved.packHash, managed: [...newPaths] }));
+  fs.writeFileSync(path.join(gameDir, STATE_NAME), JSON.stringify({
+    packHash: resolved.packHash,
+    managed: [...newPaths],
+    // 自動更新がオフ(固定)のとき、パックを取得し直さずに起動するための、導入済みの版の情報
+    meta: {
+      fingerprint: resolved.fingerprint, minecraft: resolved.minecraft, loader: resolved.loader,
+      loaderVersion: resolved.loaderVersion, label: resolved.label,
+    },
+  }));
   return { downloaded: todo.length, removed, packChanged, firstRun: !('packHash' in state) };
 }
 
-module.exports = { resolveEntry, syncFiles };
+// 導入済みのパックの情報。entry が前回導入したものと同じパックでなければ null(=入れ直しが必要)
+function readInstalled(gameDir, entry) {
+  const m = readState(gameDir).meta;
+  if (!m || m.fingerprint !== entryFingerprint(entry) || !m.minecraft) return null;
+  return { ...m, files: [], strictMods: false };
+}
+
+// 状態ファイルに追記する(導入したローダーのバージョンIDなど)
+function patchInstalled(gameDir, patch) {
+  const state = readState(gameDir);
+  if (!state.meta) return;
+  fs.writeFileSync(path.join(gameDir, STATE_NAME), JSON.stringify({ ...state, meta: { ...state.meta, ...patch } }));
+}
+
+module.exports = { resolveEntry, syncFiles, readInstalled, patchInstalled };
